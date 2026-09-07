@@ -13,11 +13,16 @@ import assert from "node:assert/strict";
 
 import {
   aprToBps,
+  cancelProposalOnChain,
   computeLoanHash,
   dealUnitsToWei,
+  fundAgreementOnChain,
+  getLoanRegistryContract,
+  getRepaymentAmountOnChain,
   isLoanRegistryDeployed,
   LoanRegistryNotDeployedError,
-  getLoanRegistryContract,
+  markDefaultedOnChain,
+  repayOnChain,
 } from "../lib/loan-contract";
 
 test("computeLoanHash is deterministic for the same negotiation id", () => {
@@ -53,4 +58,31 @@ test("isLoanRegistryDeployed is false when NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS is 
 
 test("getLoanRegistryContract throws LoanRegistryNotDeployedError rather than pointing at a fabricated address", () => {
   assert.throws(() => getLoanRegistryContract({} as never), LoanRegistryNotDeployedError);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 3B lifecycle actions (fund/repay/cancel/markDefaulted/repaymentAmount)
+// all route through getLoanRegistryContract, so they fail the same honest
+// way — not deployed here means a real, typed error, never a fabricated
+// transaction or reading.
+// ---------------------------------------------------------------------------
+
+test("fundAgreementOnChain rejects with LoanRegistryNotDeployedError when not deployed", async () => {
+  await assert.rejects(() => fundAgreementOnChain({} as never, computeLoanHash("x"), BigInt(1)), LoanRegistryNotDeployedError);
+});
+
+test("cancelProposalOnChain rejects with LoanRegistryNotDeployedError when not deployed", async () => {
+  await assert.rejects(() => cancelProposalOnChain({} as never, computeLoanHash("x")), LoanRegistryNotDeployedError);
+});
+
+test("repayOnChain rejects with LoanRegistryNotDeployedError when not deployed", async () => {
+  await assert.rejects(() => repayOnChain({} as never, computeLoanHash("x")), LoanRegistryNotDeployedError);
+});
+
+test("markDefaultedOnChain rejects with LoanRegistryNotDeployedError when not deployed", async () => {
+  await assert.rejects(() => markDefaultedOnChain({} as never, computeLoanHash("x")), LoanRegistryNotDeployedError);
+});
+
+test("getRepaymentAmountOnChain rejects with LoanRegistryNotDeployedError when not deployed", async () => {
+  await assert.rejects(() => getRepaymentAmountOnChain({} as never, computeLoanHash("x")), LoanRegistryNotDeployedError);
 });

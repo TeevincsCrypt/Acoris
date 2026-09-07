@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useWallet } from "@/lib/wallet-context";
 import {
+  AgreementStatus,
   computeLoanHash,
+  getAgreement,
   isLoanRegistryDeployed,
   LOAN_REGISTRY_ADDRESS,
   proposeAgreementOnChain,
 } from "@/lib/loan-contract";
 import type { LoanTerms } from "@/lib/negotiation/types";
+
+import { LoanLifecycle } from "./LoanLifecycle";
 
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
@@ -22,6 +26,13 @@ const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
  * contract; see docs/ACORIS_LOAN_CONTRACT.md for why that isn't the case
  * in this project's sandbox (no funded deployer key, no network access to
  * CC3 Testnet).
+ *
+ * Phase 3B follow-up: once a proposal exists on-chain (either just made
+ * here, or found on mount — e.g. the page was reloaded but this
+ * negotiationId's loanHash was already proposed in an earlier session),
+ * control hands off to LoanLifecycle for the rest of the real lifecycle
+ * (fund / repay / mark defaulted / cancel), reading the deployed contract
+ * directly as the source of truth rather than tracking status locally.
  */
 export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiationId: string; finalTerms: LoanTerms }) {
   const wallet = useWallet();
@@ -29,6 +40,29 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
   const [state, setState] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [alreadyProposed, setAlreadyProposed] = useState(false);
+
+  const loanHash = computeLoanHash(negotiationId);
+  const deployed = isLoanRegistryDeployed();
+
+  useEffect(() => {
+    if (!deployed || finalTerms.status !== "accepted" || wallet.status !== "connected") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const signer = await wallet.getSigner();
+        const agreement = await getAgreement(signer, loanHash);
+        if (!cancelled && agreement.status !== AgreementStatus.None) {
+          setAlreadyProposed(true);
+        }
+      } catch {
+        // Best-effort existence check — on failure, the propose form below remains the fallback.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [deployed, finalTerms.status, wallet, loanHash]);
 
   if (finalTerms.status !== "accepted") {
     return (
@@ -38,7 +72,7 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
     );
   }
 
-  if (!isLoanRegistryDeployed()) {
+  if (!deployed) {
     return (
       <button
         disabled
@@ -50,16 +84,28 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
     );
   }
 
+  if (state === "success" || alreadyProposed) {
+    return (
+      <div className="mt-4 space-y-2">
+        {state === "success" && (
+          <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            Proposed on-chain. Tx: <span className="font-mono">{txHash}</span>. Collateral escrowed.
+          </p>
+        )}
+        <LoanLifecycle loanHash={loanHash} />
+      </div>
+    );
+  }
+
   const walletReady = wallet.status === "connected";
   const validLender = ADDRESS_PATTERN.test(lenderAddress);
-  const canExecute = finalTerms.status === "accepted" && walletReady && validLender && state !== "submitting";
+  const canExecute = walletReady && validLender && state !== "submitting";
 
   async function handleExecute() {
     setState("submitting");
     setErrorMessage(null);
     try {
       const signer = await wallet.getSigner();
-      const loanHash = computeLoanHash(negotiationId);
       const tx = await proposeAgreementOnChain(signer, {
         loanHash,
         lenderAddress,
@@ -99,12 +145,6 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
       >
         {state === "submitting" ? "Submitting…" : "Propose Agreement On-Chain"}
       </button>
-      {state === "success" && (
-        <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-          Proposed on-chain. Tx: <span className="font-mono">{txHash}</span>. Collateral escrowed — waiting for the
-          lender to call fundAgreement.
-        </p>
-      )}
       {state === "error" && (
         <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
           {errorMessage}

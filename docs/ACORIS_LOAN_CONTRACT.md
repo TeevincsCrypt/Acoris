@@ -144,6 +144,42 @@ configured, it calls `proposeAgreementOnChain` for real, from the connected
 wallet, and reports the real transaction hash or the real error — never a
 fabricated success.
 
+### Full lifecycle UI (post-Phase-4 follow-up)
+
+Proposing was only the first step of the contract's state machine — funding,
+repayment, default, and cancellation exist on-chain (see the lifecycle
+diagram above) but had no UI until this pass. `lib/loan-contract/index.ts`
+gained the remaining write calls (`fundAgreementOnChain`,
+`cancelProposalOnChain`, `markDefaultedOnChain`) and a read helper
+(`getRepaymentAmountOnChain`, wrapping the contract's own
+`repaymentAmount(loanHash)` so the UI never recomputes interest itself).
+`fundAgreementOnChain` takes the **on-chain** `principal` (wei, read back via
+`getAgreement`) rather than re-deriving it from the negotiation's abstract
+deal units — once a proposal exists, the contract's own recorded value is
+the source of truth, and `fundAgreement` reverts on any mismatch anyway.
+
+`components/negotiation/LoanLifecycle.tsx` is the new component that drives
+all of this: given a `loanHash`, it reads `getAgreement` directly from CC3
+(polling every 20s while the agreement is in a non-terminal state, so a
+counterparty's action taken in a different browser shows up here too),
+determines whether the connected wallet is the borrower, the lender, or
+neither, and renders exactly the actions that wallet can actually take next:
+
+- **Proposed**, connected as borrower → Cancel Proposal
+- **Proposed**, connected as lender → Fund Agreement
+- **Funded**, connected as borrower → Repay (showing the live
+  `repaymentAmount` owed)
+- **Funded**, connected as lender, past the due date
+  (`fundedAt + durationSeconds`) → Mark Defaulted (claim collateral)
+- **Repaid** / **Defaulted** / **Cancelled** → terminal state, no actions
+
+Every action is a real transaction against the deployed contract (no
+simulated status transitions) followed by a real re-read of `getAgreement`
+— never an optimistic local status flip. `ExecuteOnCreditcoin` hands off to
+`LoanLifecycle` once a proposal exists, whether that's because this session
+just proposed one or because an on-chain check on mount found the
+loanHash already proposed (e.g. the page was reloaded).
+
 **Negotiation amounts have no on-chain denomination of their own** (Phase
 3A's `LoanRequest.amount`/`collateralValue` are abstract deal units, e.g.
 `10000`). Executing an agreement maps them 1:1 onto native CTC via
@@ -156,21 +192,31 @@ for it at execution time, when the deal is actually being put on-chain.
 
 ### What could not be tested here
 
-The `ExecuteOnCreditcoin` UI only renders its interactive form once a
-negotiation reaches `finalTerms.status === "accepted"`, which requires a
-successful Phase 3A AI call — unavailable in this sandbox (see
-`docs/ACORIS_NEGOTIATION_ENGINE.md`). So this component's browser rendering
-could not be exercised end-to-end here; its pure helpers
-(`computeLoanHash`, `aprToBps`, `dealUnitsToWei`, and the
-not-deployed-throws-not-fabricates behavior) are unit tested in
-`web/tests/loan-contract.unit.test.ts` (6 tests), and the contract it calls
-is proven correct by the 20 real-EVM Hardhat tests above.
+Both `ExecuteOnCreditcoin` and `LoanLifecycle` only render their interactive
+UI once a negotiation reaches `finalTerms.status === "accepted"` (for
+`ExecuteOnCreditcoin`) or once an on-chain agreement actually exists (for
+`LoanLifecycle`) — the former requires a successful Phase 3A AI call
+(unavailable in this sandbox, see `docs/ACORIS_NEGOTIATION_ENGINE.md`), and
+the latter requires a deployed registry (unavailable here too). So neither
+component's browser rendering, nor the real fund/repay/cancel/markDefaulted
+transactions, could be exercised end-to-end in this sandbox. What *is*
+verified here:
+
+- Pure helpers (`computeLoanHash`, `aprToBps`, `dealUnitsToWei`) and every
+  write/read function's not-deployed-rejects-honestly behavior
+  (`getLoanRegistryContract`, `fundAgreementOnChain`, `cancelProposalOnChain`,
+  `repayOnChain`, `markDefaultedOnChain`, `getRepaymentAmountOnChain`) — 11
+  tests in `web/tests/loan-contract.unit.test.ts`.
+- The contract itself: 20 real-EVM Hardhat tests covering every transition
+  in the lifecycle diagram above, including `markDefaulted`'s
+  duration-elapsed gate and `repay`'s exact-value enforcement.
 
 ## What still requires manual verification
 
 Someone with a funded CC3 Testnet account and network access needs to:
 
 1. Deploy for real (steps above) and confirm the address resolves on CC3 Testnet.
-2. Run one full propose → fund → repay cycle with two real wallets and confirm balances move as the tests predict.
+2. Run one full propose → fund → repay cycle with two real wallets, using the `LoanLifecycle` UI end-to-end (not just the contract directly), and confirm balances and displayed status move as the tests predict, including the "due" timestamp and post-due `markDefaulted` gating.
 3. Set `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS` and click through `ExecuteOnCreditcoin` in a real browser with a real Phase 3A negotiation that reached `accepted`.
-4. Verify a real repayment on the deployed contract is actually provable through the Phase 2 Attestcoin pipeline against CC3 Testnet as the *target* chain query — the current Phase 2 pipeline verifies Sepolia-sourced transactions; verifying a same-chain (CC3-native) event needs `resolveSepoliaChainKey`'s equivalent for CC3-as-source, which is out of scope here and would need its own check against `getSupportedChains()`.
+4. Confirm the "already proposed on mount" path in `ExecuteOnCreditcoin` (reloading the page after a proposal was made) correctly hands off to `LoanLifecycle` instead of re-showing the propose form.
+5. Verify a real repayment on the deployed contract is actually provable through the Phase 2 Attestcoin pipeline against CC3 Testnet as the *target* chain query — the current Phase 2 pipeline verifies Sepolia-sourced transactions; verifying a same-chain (CC3-native) event needs `resolveSepoliaChainKey`'s equivalent for CC3-as-source, which is out of scope here and would need its own check against `getSupportedChains()`.

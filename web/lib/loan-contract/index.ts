@@ -107,10 +107,23 @@ export async function proposeAgreementOnChain(signer: Signer, params: ProposeAgr
   });
 }
 
-/** Named lender funds the proposed agreement. Requires the lender's own signer. */
-export async function fundAgreementOnChain(signer: Signer, loanHash: string, principalDealUnits: number) {
+/**
+ * Named lender funds the proposed agreement. Requires the lender's own
+ * signer. Takes the exact wei amount the contract itself recorded as
+ * `principal` (read via getAgreement) rather than re-deriving it from the
+ * negotiation's abstract deal units — the on-chain value is the source of
+ * truth once a proposal exists, and `fundAgreement` reverts on any mismatch
+ * anyway (IncorrectValue).
+ */
+export async function fundAgreementOnChain(signer: Signer, loanHash: string, principalWei: bigint) {
   const contract = getLoanRegistryContract(signer);
-  return contract.fundAgreement(loanHash, { value: dealUnitsToWei(principalDealUnits) });
+  return contract.fundAgreement(loanHash, { value: principalWei });
+}
+
+/** Borrower withdraws a not-yet-funded proposal, reclaiming their escrowed collateral. Requires the borrower's own signer. */
+export async function cancelProposalOnChain(signer: Signer, loanHash: string) {
+  const contract = getLoanRegistryContract(signer);
+  return contract.cancelProposal(loanHash);
 }
 
 /** Borrower repays principal + interest. Requires the borrower's own signer. */
@@ -118,6 +131,18 @@ export async function repayOnChain(signer: Signer, loanHash: string) {
   const contract = getLoanRegistryContract(signer);
   const owed: bigint = await contract.repaymentAmount(loanHash);
   return contract.repay(loanHash, { value: owed });
+}
+
+/** Lender seizes collateral once the agreed duration has elapsed without repayment. Requires the lender's own signer. */
+export async function markDefaultedOnChain(signer: Signer, loanHash: string) {
+  const contract = getLoanRegistryContract(signer);
+  return contract.markDefaulted(loanHash);
+}
+
+/** Total principal + interest currently owed for this agreement (matches what `repay` requires as msg.value). */
+export async function getRepaymentAmountOnChain(runner: Signer | BrowserProvider, loanHash: string): Promise<bigint> {
+  const contract = getLoanRegistryContract(runner);
+  return contract.repaymentAmount(loanHash);
 }
 
 export async function getAgreement(runner: Signer | BrowserProvider, loanHash: string): Promise<OnChainAgreement> {
