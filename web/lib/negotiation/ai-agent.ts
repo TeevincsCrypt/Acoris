@@ -48,13 +48,18 @@ const AgentDecisionSchema = z.object({
 
 export type AgentDecision = z.infer<typeof AgentDecisionSchema>;
 
+export const AI_UNAVAILABLE_MESSAGE = "ANTHROPIC_API_KEY is not configured on the server — the negotiation AI cannot run.";
+
+/** Cheap, synchronous pre-flight check — lets callers fail fast before opening a stream. */
+export function isAIConfigured(): boolean {
+  return typeof process.env.ANTHROPIC_API_KEY === "string" && process.env.ANTHROPIC_API_KEY.length > 0;
+}
+
 let cachedClient: Anthropic | null = null;
 
 function getClient(): Anthropic {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new AIUnavailableError(
-      "ANTHROPIC_API_KEY is not configured on the server — the negotiation AI cannot run.",
-    );
+  if (!isAIConfigured()) {
+    throw new AIUnavailableError(AI_UNAVAILABLE_MESSAGE);
   }
   if (!cachedClient) {
     cachedClient = new Anthropic();

@@ -43,11 +43,20 @@ export interface VerificationEvidenceRef {
   sourceChain: string;
   transactionHash: string;
   blockHeight: number;
-  /** true only when Attestcoin's BlockProver verification genuinely succeeded for this tx. */
+  /** true only when Attestcoin's BlockProver verification genuinely succeeded for this tx (or, for native CC3 evidence, the event genuinely exists on-chain). */
   verified: true;
   /** Repayment amount decoded from the verified proof, in wei (string to avoid float loss). */
   amountWei: string;
   status: "success" | "failed";
+  /**
+   * Whether this repayment happened by its due date. `null` when not
+   * derivable from this evidence's source — Sepolia-via-Attestcoin evidence
+   * (lib/attestcoin.ts's fact shape) carries no due-date, so it's always
+   * null there. Native CC3 AcorisLoanRegistry history (lib/negotiation/onchain-history.ts)
+   * computes a real boolean from the loan's actual funded-at + duration vs.
+   * its actual repayment timestamp.
+   */
+  onTime: boolean | null;
 }
 
 export interface NotAvailableProfile {
@@ -68,10 +77,11 @@ export interface VerifiedProfile {
   successfulRepaymentCount: number;
   failedRepaymentCount: number;
   /**
-   * Fraction of verified repayments that were on time, 0..1. `null` when
-   * not computable from the available evidence (the current Attestcoin
-   * fact shape carries no due-date, so this is always null for now —
-   * never invented).
+   * Fraction of verified repayments that were on time, 0..1, computed only
+   * from evidence entries where `onTime` is known (see VerificationEvidenceRef).
+   * `null` when no evidence entry has a determinable due date — e.g. when
+   * every entry came from Sepolia-via-Attestcoin (Phase 2), which carries
+   * no due-date. Never invented from evidence that doesn't support it.
    */
   onTimeRepaymentRate: number | null;
   /** Description of the most recent verified activity (e.g. "Sepolia block 9123456"). */

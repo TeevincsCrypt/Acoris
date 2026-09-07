@@ -28,6 +28,8 @@ export interface RunNegotiationInput {
   financialProfile: VerifiedFinancialProfile;
   lenderRiskPolicy?: LenderRiskPolicy;
   maxRounds?: number;
+  /** Called synchronously right after each round is recorded — lets callers stream progress live instead of waiting for the full result. */
+  onRound?: (round: NegotiationRound) => void;
 }
 
 async function getDecision(
@@ -92,6 +94,7 @@ export async function runNegotiation(input: RunNegotiationInput): Promise<Negoti
     });
 
     history.push(round);
+    input.onRound?.(round);
 
     if (round.status === "accepted" || round.status === "rejected" || round.status === "max-rounds-reached") {
       break;

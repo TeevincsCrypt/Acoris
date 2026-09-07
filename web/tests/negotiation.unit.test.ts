@@ -19,7 +19,7 @@ import {
   validateBorrowerOffer,
   validateLenderOffer,
 } from "../lib/negotiation/constraints";
-import { buildVerifiedFinancialProfile } from "../lib/negotiation/financial-profile";
+import { buildVerifiedFinancialProfile, buildVerifiedFinancialProfileFromAttestcoin, evidenceFromAttestcoinResults } from "../lib/negotiation/financial-profile";
 import { deriveFinalTerms, enforceAndBuildRound } from "../lib/negotiation/round-logic";
 import type {
   BorrowerConstraints,
@@ -369,12 +369,12 @@ test("deriveFinalTerms handles an empty history as no-agreement", () => {
 // ---------------------------------------------------------------------------
 
 test("buildVerifiedFinancialProfile with no results is explicitly not-available", () => {
-  const profile = buildVerifiedFinancialProfile([]);
+  const profile = buildVerifiedFinancialProfileFromAttestcoin([]);
   assert.deepEqual(profile, { status: "not-available" });
 });
 
 test("buildVerifiedFinancialProfile with undefined input is explicitly not-available", () => {
-  const profile = buildVerifiedFinancialProfile(undefined);
+  const profile = buildVerifiedFinancialProfileFromAttestcoin(undefined);
   assert.deepEqual(profile, { status: "not-available" });
 });
 
@@ -386,7 +386,7 @@ test("buildVerifiedFinancialProfile ignores results that never actually verified
     transactionHash: "0x" + "a".repeat(64),
     error: "Host not in allowlist",
   };
-  const profile = buildVerifiedFinancialProfile([blockedResult]);
+  const profile = buildVerifiedFinancialProfileFromAttestcoin([blockedResult]);
   assert.equal(profile.status, "not-available", "a blocked/failed verification attempt must never count as evidence");
 });
 
@@ -420,7 +420,7 @@ test("buildVerifiedFinancialProfile aggregates real verified evidence correctly"
       },
     },
   };
-  const profile = buildVerifiedFinancialProfile([verified]);
+  const profile = buildVerifiedFinancialProfileFromAttestcoin([verified]);
   assert.equal(profile.status, "verified");
   if (profile.status === "verified") {
     assert.equal(profile.verifiedRepaymentCount, 1);
@@ -429,6 +429,81 @@ test("buildVerifiedFinancialProfile aggregates real verified evidence correctly"
     assert.equal(profile.verifiedRepaymentVolume, "1000000000000000000");
     assert.equal(profile.mostRecentVerifiedActivity, "sepolia block 9000000");
     assert.deepEqual(profile.sourceChains, ["sepolia"]);
+  }
+});
+
+test("evidenceFromAttestcoinResults produces evidence with onTime: null (Attestcoin's fact shape carries no due-date)", () => {
+  const verified: AttestcoinVerificationResult = {
+    stage: "complete",
+    ok: true,
+    networkBlocked: false,
+    transactionHash: "0x202b9b1d689578cf7dd7b279b3c9cb02f47cef7b44b6fa1650ab67977f86cb11",
+    sourceChain: { chainKey: 7, chainId: 11155111, chainName: "sepolia" },
+    sourceBlockHeight: 9000000,
+    attested: true,
+    proofVerified: true,
+    fact: {
+      kind: "sepolia-loan-repayment",
+      transactionStatus: "success",
+      transactionFrom: "0x2FabAFfC7F6426C1beEdec22cc150A7dBE6667FB",
+      transactionTo: "0x39DE412201f2446b3606C93dFB799EdE6a721b13",
+      loanEvent: {
+        contract: "0x39DE412201f2446b3606C93dFB799EdE6a721b13",
+        loanHash: "0xaf840a790d0056fa2c551a54a9b845e8f427107fe6570c41d89ecfe396d32f98",
+        lender: "0x1111111111111111111111111111111111111111",
+        borrower: "0x2222222222222222222222222222222222222222",
+        amountWei: "1000000000000000000",
+      },
+      transferEvent: {
+        contract: "0x296077f69435a073f7A6E0CBAEf8C1877633832E",
+        from: "0x2FabAFfC7F6426C1beEdec22cc150A7dBE6667FB",
+        to: "0x1111111111111111111111111111111111111111",
+        valueWei: "1000000000000000000",
+      },
+    },
+  };
+  const evidence = evidenceFromAttestcoinResults([verified]);
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].onTime, null);
+  assert.equal(evidence[0].sourceChain, "sepolia");
+  assert.equal(evidence[0].blockHeight, 9000000);
+});
+
+test("evidenceFromAttestcoinResults filters out unverified/failed attempts", () => {
+  const blocked: AttestcoinVerificationResult = {
+    stage: "resolving-source-chain",
+    ok: false,
+    networkBlocked: true,
+    transactionHash: "0x" + "a".repeat(64),
+    error: "Host not in allowlist",
+  };
+  assert.deepEqual(evidenceFromAttestcoinResults([blocked]), []);
+});
+
+test("buildVerifiedFinancialProfile computes onTimeRepaymentRate only from evidence with a determined onTime", () => {
+  const evidenceMixed = [
+    { sourceChain: "cc3-testnet", transactionHash: "0x" + "1".repeat(64), blockHeight: 100, verified: true as const, amountWei: "1000", status: "success" as const, onTime: true },
+    { sourceChain: "cc3-testnet", transactionHash: "0x" + "2".repeat(64), blockHeight: 200, verified: true as const, amountWei: "2000", status: "success" as const, onTime: false },
+    { sourceChain: "sepolia", transactionHash: "0x" + "3".repeat(64), blockHeight: 300, verified: true as const, amountWei: "3000", status: "success" as const, onTime: null },
+  ];
+  const profile = buildVerifiedFinancialProfile(evidenceMixed);
+  assert.equal(profile.status, "verified");
+  if (profile.status === "verified") {
+    // Only the two entries with a determined onTime count: 1 of 2 on time.
+    assert.equal(profile.onTimeRepaymentRate, 0.5);
+    assert.equal(profile.verifiedRepaymentCount, 3);
+    assert.deepEqual(profile.sourceChains, ["cc3-testnet", "sepolia"]);
+  }
+});
+
+test("buildVerifiedFinancialProfile.onTimeRepaymentRate is null when no evidence has a determined onTime", () => {
+  const evidenceAllNull = [
+    { sourceChain: "sepolia", transactionHash: "0x" + "1".repeat(64), blockHeight: 100, verified: true as const, amountWei: "1000", status: "success" as const, onTime: null },
+  ];
+  const profile = buildVerifiedFinancialProfile(evidenceAllNull);
+  assert.equal(profile.status, "verified");
+  if (profile.status === "verified") {
+    assert.equal(profile.onTimeRepaymentRate, null);
   }
 });
 

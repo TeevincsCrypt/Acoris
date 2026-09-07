@@ -1,9 +1,13 @@
-// Phase 3A smoke test: the negotiation UI + API route through the real app.
-// No LLM calls are mocked. In this sandbox there is no ANTHROPIC_API_KEY
-// configured, so the honest, expected outcome is a clear "AI unavailable"
-// error — never a fabricated negotiation. This test asserts exactly that,
-// plus the deterministic parts (input validation, Verified Credit badges)
-// that don't depend on the AI being reachable.
+// Phase 3A/3B smoke test: the negotiation UI + API route through the real
+// app. No LLM calls are mocked. In this sandbox there is no
+// ANTHROPIC_API_KEY configured, so the honest, expected outcome is a clear
+// "AI unavailable" error — never a fabricated negotiation. That check
+// (isAIConfigured()) runs BEFORE the response stream opens, so it's still a
+// single plain JSON 503 response, not NDJSON — this test asserts exactly
+// that, plus the deterministic parts (input validation, on-chain-evidence
+// "not deployed" handling, Verified Credit badges) that don't depend on the
+// AI being reachable. It does not exercise the real round-by-round NDJSON
+// stream, since that only starts once the AI is reachable.
 //
 // Run with: node tests/e2e-negotiation.mjs
 
@@ -54,21 +58,32 @@ async function main() {
         financialEvidence: { mode: "none" },
       }),
     });
-    const body = await res.json();
-    console.log("negotiation API result:", JSON.stringify(body));
+    const isStream = res.headers.get("content-type")?.includes("ndjson") ?? false;
 
-    if (res.status === 503 && body.code === "ai-unavailable") {
+    if (!isStream) {
+      const body = await res.json();
+      console.log("negotiation API result:", JSON.stringify(body));
+      assert(res.status === 503 && body.code === "ai-unavailable", `expected a 503 ai-unavailable JSON response, got ${res.status}: ${JSON.stringify(body)}`);
       console.log("This environment has no ANTHROPIC_API_KEY configured (expected here).");
       assert(typeof body.error === "string" && body.error.length > 0, "reports a real, specific error message");
       assert(body.rounds === undefined, "no fabricated rounds when AI is unavailable");
       assert(body.finalTerms === undefined, "no fabricated final terms when AI is unavailable");
     } else {
-      // If this ever runs somewhere with a real key configured, sanity-check
-      // the happy path is internally consistent.
-      assert(res.ok, `unexpected status ${res.status}: ${JSON.stringify(body)}`);
-      assert(Array.isArray(body.rounds) && body.rounds.length > 0, "a successful run has at least one round");
-      assert(["accepted", "rejected", "no-agreement"].includes(body.finalTerms.status), "final terms have a valid status");
-      assert(body.rounds.length <= 8, "negotiation stayed within the round limit");
+      // If this ever runs somewhere with a real key configured, the
+      // response is a genuine NDJSON stream — sanity-check it decodes into
+      // an internally-consistent sequence of "round" messages followed by
+      // exactly one "complete".
+      const text = await res.text();
+      const messages = text
+        .split("\n")
+        .filter((l) => l.trim().length > 0)
+        .map((l) => JSON.parse(l));
+      const rounds = messages.filter((m) => m.type === "round");
+      const complete = messages.find((m) => m.type === "complete");
+      assert(rounds.length > 0, "at least one round streamed before completion");
+      assert(Boolean(complete), "stream ends with a complete message");
+      assert(["accepted", "rejected", "no-agreement"].includes(complete.result.finalTerms.status), "final terms have a valid status");
+      assert(complete.result.rounds.length <= 8, "negotiation stayed within the round limit");
     }
 
     // ---- API-level: invalid loan request rejected ----
@@ -78,6 +93,36 @@ async function main() {
       body: JSON.stringify({ loanRequest: { amount: -1, collateralValue: 17000, durationDays: 30, maxApr: 9 } }),
     });
     assert(badRes.status === 400, "rejects an invalid loan request with 400");
+
+    // ---- API-level: on-chain evidence mode, registry not deployed -> honest 502, never fabricated history ----
+    const onchainRes = await fetch(`${BASE_URL}/api/negotiation/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        loanRequest: { amount: 10000, collateralValue: 17000, durationDays: 30, maxApr: 9 },
+        financialEvidence: { mode: "onchain", borrowerAddress: "0x2222222222222222222222222222222222222222" },
+      }),
+    });
+    const onchainBody = await onchainRes.json();
+    assert(onchainRes.status === 502, "on-chain evidence mode fails honestly when AcorisLoanRegistry isn't deployed");
+    assert(
+      typeof onchainBody.error === "string" && onchainBody.error.includes("not deployed"),
+      "reports exactly why on-chain evidence isn't available, rather than fabricating history",
+    );
+
+    // ---- API-level: multiple transaction hashes accepted by the schema ----
+    const multiTxRes = await fetch(`${BASE_URL}/api/negotiation/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        loanRequest: { amount: 10000, collateralValue: 17000, durationDays: 30, maxApr: 9 },
+        financialEvidence: {
+          mode: "verify",
+          transactionHashes: ["0x" + "a".repeat(64), "0x" + "b".repeat(64)],
+        },
+      }),
+    });
+    assert(multiTxRes.status !== 400, "multiple transaction hashes are accepted by the request schema");
 
     // ---- Browser-level ----
     const browser = await chromium.launch({ executablePath: CHROMIUM_PATH });

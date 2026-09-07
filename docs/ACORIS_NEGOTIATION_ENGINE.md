@@ -1,4 +1,4 @@
-# Acoris AI Credit Negotiation Engine — Phase 3A
+# Acoris AI Credit Negotiation Engine — Phase 3A + 3B
 
 A structured negotiation state machine between a Borrower AI and a Lender AI,
 not a chatbot. Every round is machine-readable data. Financial constraints
@@ -13,9 +13,19 @@ web/lib/negotiation/
                       NegotiationRound, LoanTerms, constraints. No side effects.
   constraints.ts      Pure, deterministic: derives Borrower/Lender constraints,
                       validates offers, clamps out-of-bounds proposals.
-  financial-profile.ts Builds a VerifiedFinancialProfile strictly from real
-                      Phase 2 AttestcoinVerificationResult[] — never invents
-                      numbers.
+  financial-profile.ts Builds a VerifiedFinancialProfile strictly from
+                      VerificationEvidenceRef[] — never invents numbers.
+                      Two evidence *sources* feed it (see "Evidence sources"
+                      below): evidenceFromAttestcoinResults (Phase 2,
+                      cross-chain) and evidenceFromOnChainTimelines (Phase 3B,
+                      native CC3). Evidence from either or both can be merged
+                      before aggregation.
+  onchain-history.ts  Phase 3B. Reads AcorisLoanRegistry's own event log
+                      directly from CC3 Testnet (same-chain, no cross-chain
+                      proof needed) and reconstructs each agreement's real
+                      timeline — proposedAt/fundedAt/dueAt/repaidAt — so
+                      `onTimeRepaymentRate` can be a real computed boolean
+                      instead of always null.
   round-logic.ts      Pure state-transition logic (one round in, one
                       NegotiationRound out) + final-terms derivation. No LLM,
                       no network — this is what makes negotiation termination
@@ -25,9 +35,15 @@ web/lib/negotiation/
                       enforces.
   engine.ts           Server-only. Orchestrates: alternates agents, calls
                       ai-agent.ts, runs the result through round-logic.ts.
+                      Phase 3B: takes an optional `onRound` callback, invoked
+                      synchronously right after each round is recorded, so a
+                      caller can stream progress live.
 
-web/app/api/negotiation/run/route.ts   POST endpoint: request in, full
-                                        NegotiationResult (or a typed error) out.
+web/app/api/negotiation/run/route.ts   POST endpoint: resolves the financial
+                                        profile (fast-fail JSON on validation
+                                        / evidence / AI-availability errors),
+                                        then streams the negotiation as
+                                        newline-delimited JSON.
 web/components/negotiation/NegotiationConsole.tsx   UI.
 web/app/negotiation/page.tsx                        Page.
 ```
@@ -87,30 +103,88 @@ conservative baseline (`DEFAULT_LENDER_RISK_POLICY.baseMinApr` /
 in the prompt — though the prompt also tells the Lender AI never to treat
 unverified claims as verified.
 
-`onTimeRepaymentRate` is always `null` for now: the current Attestcoin fact
-shape (`VerifiedRepayLoanFact` in `lib/attestcoin.ts`) carries no due-date,
-so on-time-ness genuinely isn't derivable from it yet. `null` is left as-is
-rather than inventing a formula.
+`onTimeRepaymentRate` is computed only from evidence entries whose `onTime`
+is genuinely known (`VerificationEvidenceRef.onTime: boolean | null`), never
+invented for entries that don't support it. The two evidence sources differ
+here:
 
-### How Phase 2 evidence reaches the negotiation
+- **Phase 2, Attestcoin (cross-chain, e.g. Sepolia)** — the current
+  `VerifiedRepayLoanFact` shape (`lib/attestcoin.ts`) carries no due-date, so
+  `onTime` is always `null` for this source.
+- **Phase 3B, native CC3 on-chain history** (`onchain-history.ts`) — computes
+  a real boolean: `dueAt = fundedAt + durationSeconds` (both real block
+  timestamps read from CC3), `onTime = repaidAt <= dueAt`.
 
-`POST /api/negotiation/run` accepts `financialEvidence` in one of three
-shapes — critically, a client can only ever supply **transaction hashes to
-verify**, never a "verified" result directly:
+If a profile is built purely from Sepolia-via-Attestcoin evidence,
+`onTimeRepaymentRate` stays `null` (no entries have a determined `onTime`,
+same as Phase 3A). If it includes any on-chain-history evidence, the rate is
+computed across whichever entries have a determined `onTime`.
+
+### Evidence sources: how they reach the negotiation
+
+`POST /api/negotiation/run` accepts `financialEvidence` in one of four
+shapes — critically, a client can only ever supply **raw inputs to
+independently re-derive evidence from** (transaction hashes, a borrower
+address), never a "verified" result directly:
 
 ```ts
 { mode: "none" }
 { mode: "unverified", claimedSummary?: string }
-{ mode: "verify", transactionHashes: string[] }   // server independently
-                                                    // re-runs Phase 2's
-                                                    // runAttestcoinVerification
-                                                    // for each hash
+{ mode: "verify", transactionHashes: string[] }      // up to 10 Sepolia txs;
+                                                        // server independently
+                                                        // re-runs Phase 2's
+                                                        // runAttestcoinVerification
+                                                        // for each hash
+{ mode: "onchain", borrowerAddress: string }          // Phase 3B: reads
+                                                        // AcorisLoanRegistry's
+                                                        // real event log for
+                                                        // this borrower
+                                                        // directly from CC3
 ```
 
-The route calls `runAttestcoinVerification` (Phase 2, unmodified) for every
-hash, then `buildVerifiedFinancialProfile` on the real results. A blocked or
-failed verification simply yields no evidence for that hash — it never
-falls back to trusting the claim.
+- `"verify"` calls `runAttestcoinVerification` (Phase 2, unmodified) for
+  every hash, turns genuine successes into evidence via
+  `evidenceFromAttestcoinResults`, then aggregates with
+  `buildVerifiedFinancialProfile`. A blocked or failed verification simply
+  yields no evidence for that hash — it never falls back to trusting the
+  claim.
+- `"onchain"` is genuinely disabled — not just visually, in both the UI and
+  the API route — until `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS` is actually set
+  to a deployed AcorisLoanRegistry (same gate `lib/loan-contract.ts` uses for
+  the "Execute on Creditcoin" button; see `docs/ACORIS_LOAN_CONTRACT.md` for
+  why nothing is deployed in this sandbox). When deployed, the route opens a
+  `JsonRpcProvider` against CC3 Testnet, calls `fetchOnChainLoanHistory`, and
+  aggregates the resulting evidence the same way. Not deployed → an honest
+  `502` naming exactly why, never fabricated history.
+
+## Streaming (Phase 3B)
+
+`POST /api/negotiation/run` no longer waits for the whole negotiation before
+responding. Once the loan request validates, the financial profile resolves,
+and `ANTHROPIC_API_KEY` is confirmed present (`isAIConfigured()` — a cheap
+synchronous check so this stays a fast-fail plain JSON response, not a
+stream, when the AI truly can't run), the route opens a `ReadableStream` and
+runs `runNegotiation({ ..., onRound })`, where `onRound` writes one
+newline-delimited JSON message per round as it's decided:
+
+```
+{"type":"round","round":{...}}
+{"type":"round","round":{...}}
+{"type":"complete","result":{...}}
+```
+
+(or a single `{"type":"error","error":"...","code":"..."}` if the AI call
+fails mid-negotiation, e.g. a rate limit on round 3). Content-Type is
+`application/x-ndjson`. The client (`NegotiationConsole.tsx`) consumes this
+with `res.body.getReader()`, decoding and appending each round to the UI as
+it actually arrives — there is no more client-side `setInterval` reveal
+timer standing in for real progress.
+
+Validation errors (400), evidence-resolution failures (502), and
+AI-not-configured (503) are all still single plain JSON responses returned
+*before* the stream opens, so the client can tell a fast-fail from a stream
+by status code / `Content-Type` without needing to speculatively parse
+partial NDJSON.
 
 ## AI provider
 
@@ -163,29 +237,44 @@ structurally, but worth eyeballing real model output once).
 
 ## Tests
 
-- `web/tests/negotiation.unit.test.ts` — 31 deterministic tests, no network,
+- `web/tests/negotiation.unit.test.ts` — 35 deterministic tests, no network,
   no LLM: constraint validation, invalid lender/borrower offers, APR limits,
   collateral requirements, negotiation termination (forced opening round,
   ACCEPT adopts the counterpart's exact terms, REJECT, max-rounds-reached),
-  agreement generation, and absence/presence of verified evidence (including
-  that a blocked Phase 2 verification never counts as evidence, and that
-  `"not-available"` and `"unverified"` price identically).
+  agreement generation, absence/presence of verified evidence (including
+  that a blocked Phase 2 verification never counts as evidence, that
+  `"not-available"` and `"unverified"` price identically), and Phase 3B's
+  `evidenceFromAttestcoinResults` + `onTimeRepaymentRate` aggregation across
+  merged evidence sources.
   `npx tsx --test tests/negotiation.unit.test.ts`
+- `web/tests/onchain-history.unit.test.ts` — 10 deterministic tests, no
+  network: `reconstructLoanTimelines` against synthetic-but-realistic
+  AcorisLoanRegistry event data (on-time / late / exactly-at-due-date /
+  never-repaid / never-funded / cancelled), `computeOnTimeRepaymentRate`, and
+  `evidenceFromOnChainTimelines`'s filtering (only repaid/defaulted outcomes
+  become evidence).
+  `npx tsx --test tests/onchain-history.unit.test.ts`
 - `web/tests/e2e-negotiation.mjs` — spawns the real dev server, hits the
   real API route and UI. Asserts the AI-unavailable path is reported
-  honestly (real error, no fabricated rounds/terms) and, on an environment
-  with a real key, that a successful run is internally consistent (reaches
-  a valid terminal status, stays within the round limit).
+  honestly (a single plain JSON 503, real error, no fabricated rounds/terms,
+  returned before any stream would open), that the on-chain evidence mode
+  fails honestly with a 502 when the registry isn't deployed, that multiple
+  transaction hashes are accepted by the schema, and — on an environment
+  with a real key — that the resulting NDJSON stream decodes into an
+  internally-consistent sequence of round messages followed by exactly one
+  complete message with a valid terminal status.
   `node tests/e2e-negotiation.mjs`
 
-## What remains for Phase 3B / Phase 4
+## What remains for Phase 4 / beyond
 
-- **Phase 3B** (not started): richer borrower/lender configuration (multiple
-  simultaneous lenders, negotiation strategies beyond single-shot per-round
-  proposals, real due-date tracking so `onTimeRepaymentRate` becomes
-  computable), streaming the negotiation to the UI as it happens rather than
-  one batched response, persisting negotiation history.
-- **Phase 4** (explicitly not started per instructions): the actual
-  `LoanAgreement.sol` contract on CC3 Testnet. The UI's "Execute on
-  Creditcoin" button is present but disabled, labeled "not yet executable
-  (Phase 4)" — it does not call any contract.
+- **Phase 3B** (this phase): done — multi-tx verified evidence, native CC3
+  on-chain history with real due-date tracking, and live NDJSON streaming
+  are all implemented as described above. Not done, and out of this phase's
+  explicit scope: multiple simultaneous lenders, negotiation strategies
+  beyond single-shot per-round proposals, persisting negotiation history.
+- **Phase 4**: the `AcorisLoanRegistry.sol` contract itself is implemented
+  (see `docs/ACORIS_LOAN_CONTRACT.md`) and the negotiation UI's "Execute on
+  Creditcoin" button calls it for real once a wallet is connected — but the
+  contract is not deployed to CC3 Testnet in this sandbox (no funded
+  deployer key, no network access), so both the button and the `"onchain"`
+  evidence mode stay genuinely, not just visually, disabled here.
