@@ -152,10 +152,17 @@ address), never a "verified" result directly:
   the API route — until `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS` is actually set
   to a deployed AcorisLoanRegistry (same gate `lib/loan-contract.ts` uses for
   the "Execute on Creditcoin" button; see `docs/ACORIS_LOAN_CONTRACT.md` for
-  why nothing is deployed in this sandbox). When deployed, the route opens a
-  `JsonRpcProvider` against CC3 Testnet, calls `fetchOnChainLoanHistory`, and
-  aggregates the resulting evidence the same way. Not deployed → an honest
-  `502` naming exactly why, never fabricated history.
+  why nothing was deployed from this sandbox — it has since been deployed
+  from outside it). A second env var, `LOAN_REGISTRY_DEPLOY_BLOCK` (the
+  registry's actual deployment block), is also required — added after the
+  first live run of this mode hit a real CC3 Testnet RPC timeout scanning
+  `eth_getLogs` from genesis (see `docs/ACORIS_LOAN_CONTRACT.md`'s "A real
+  deployment, and a real bug it surfaced" for the full story). When both are
+  set, the route opens a `JsonRpcProvider` against CC3 Testnet, calls
+  `fetchOnChainLoanHistory` (which chunks its block-range queries so no
+  single RPC call can time out), and aggregates the resulting evidence the
+  same way. Either being unset → an honest `502` naming exactly which one
+  and why, never fabricated history.
 
 ## Streaming (Phase 3B)
 

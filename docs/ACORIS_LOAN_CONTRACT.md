@@ -124,7 +124,47 @@ $ npx hardhat ignition deploy ignition/modules/AcorisLoanRegistry.ts --network h
 1. Fund an account with tCTC (Discord `#token-faucet`, per the foundation report).
 2. Set the deployer key — either `npx hardhat keystore set CC3_DEPLOYER_PRIVATE_KEY` (encrypted local storage, recommended) or export `CC3_DEPLOYER_PRIVATE_KEY` as a plain env var (both are read by `configVariable`, confirmed against `node_modules/hardhat/dist/src/internal/core/configuration-variables.js` — env vars take precedence over any keystore).
 3. `cd contracts && npx hardhat ignition deploy ignition/modules/AcorisLoanRegistry.ts --network cc3Testnet`
-4. Set `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS` in `web/.env.local` to the deployed address.
+4. Set `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS` in the web app's environment (e.g. Vercel project settings) to the deployed address.
+5. Note the block number the deployment transaction landed in (visible on Blockscout, or in Ignition's own output/journal) and set `LOAN_REGISTRY_DEPLOY_BLOCK` to it — required for the `"onchain"` financial-evidence mode; see "A real deployment, and a real bug it surfaced" below for why.
+
+### Update: deployed for real, outside this sandbox
+
+Since this was written, someone with a funded account and normal network
+access (i.e. not this sandbox) ran the steps above for real and deployed
+`AcorisLoanRegistry` to CC3 Testnet. Everything below this point that says
+"could not be tested here" refers specifically to what this sandbox's own
+egress restrictions prevented — it does not mean the feature is unproven;
+see the next section for what that live deployment immediately caught.
+
+#### A real deployment, and a real bug it surfaced
+
+The very first live use of the `"onchain"` financial-evidence mode (reading
+a borrower's AcorisLoanRegistry history — see
+`docs/ACORIS_NEGOTIATION_ENGINE.md`) failed with a real RPC error:
+
+```
+could not coalesce error (error={ "code": -32603, "message": "query timeout
+of 10 seconds exceeded" }, payload={ ..., "method": "eth_getLogs",
+"params": [{ "fromBlock": "0x0", "toBlock": "latest", ... }] })
+```
+
+`fetchOnChainLoanHistory` (`lib/negotiation/onchain-history.ts`) was
+scanning every event type from block `0` to `latest` — correct in principle
+(the contract can't have emitted anything before it existed), but CC3
+Testnet's own RPC node times out a genesis-to-latest `eth_getLogs` scan
+long before it finishes, on a chain that's been running a while. Fixed two
+ways:
+
+- **Chunking**: `queryFilterChunked` (backed by the pure, unit-tested
+  `computeBlockChunks`) splits any `[fromBlock, toBlock]` range into
+  bounded windows (5000 blocks each) queried sequentially, so no single
+  `eth_getLogs` call can time out regardless of how wide the range is.
+- **A required starting block**: `LOAN_REGISTRY_DEPLOY_BLOCK` (server env
+  var, parsed by the pure `parseDeployBlock`) must be set to the registry's
+  actual deployment block. Without it, `"onchain"` mode fails honestly with
+  a specific error explaining why, rather than silently defaulting to `0`
+  and turning one slow query into hundreds of chunked ones. This mirrors
+  every other "genuinely disabled until configured" gate in this project.
 
 ## Web app wiring
 
@@ -213,10 +253,13 @@ verified here:
 
 ## What still requires manual verification
 
-Someone with a funded CC3 Testnet account and network access needs to:
+Status against a real deployment (`0x1bb2Bf0eD3f218E29039432F0494380f892AfCB0`
+at the time of writing — confirm the current address in the deployment's own
+Vercel env vars, since a redeploy could point elsewhere):
 
-1. Deploy for real (steps above) and confirm the address resolves on CC3 Testnet.
-2. Run one full propose → fund → repay cycle with two real wallets, using the `LoanLifecycle` UI end-to-end (not just the contract directly), and confirm balances and displayed status move as the tests predict, including the "due" timestamp and post-due `markDefaulted` gating.
-3. Set `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS` and click through `ExecuteOnCreditcoin` in a real browser with a real Phase 3A negotiation that reached `accepted`.
-4. Confirm the "already proposed on mount" path in `ExecuteOnCreditcoin` (reloading the page after a proposal was made) correctly hands off to `LoanLifecycle` instead of re-showing the propose form.
-5. Verify a real repayment on the deployed contract is actually provable through the Phase 2 Attestcoin pipeline against CC3 Testnet as the *target* chain query — the current Phase 2 pipeline verifies Sepolia-sourced transactions; verifying a same-chain (CC3-native) event needs `resolveSepoliaChainKey`'s equivalent for CC3-as-source, which is out of scope here and would need its own check against `getSupportedChains()`.
+1. ~~Deploy for real and confirm the address resolves on CC3 Testnet.~~ **Done** — deployed outside this sandbox, `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS` set and live.
+2. ~~Reach a real accepted negotiation with a real `ANTHROPIC_API_KEY`.~~ **Done** — a live Borrower AI / Lender AI negotiation reached a final agreement.
+3. Click through `ExecuteOnCreditcoin`'s "Propose Agreement On-Chain" for real and confirm it returns a genuine transaction hash (in progress as of the last check-in — this is the one write-path boundary not yet confirmed live).
+4. Run the rest of the cycle with two real wallets — fund, then repay — using the `LoanLifecycle` UI end-to-end (not just the contract directly), and confirm balances and displayed status move as the tests predict, including the "due" timestamp and post-due `markDefaulted` gating.
+5. Confirm the "already proposed on mount" path in `ExecuteOnCreditcoin` (reloading the page after a proposal was made) correctly hands off to `LoanLifecycle` instead of re-showing the propose form.
+6. Verify a real repayment on the deployed contract is actually provable through the Phase 2 Attestcoin pipeline against CC3 Testnet as the *target* chain query — the current Phase 2 pipeline verifies Sepolia-sourced transactions; verifying a same-chain (CC3-native) event needs `resolveSepoliaChainKey`'s equivalent for CC3-as-source, which is out of scope here and would need its own check against `getSupportedChains()`.

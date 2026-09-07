@@ -19,7 +19,7 @@
  * for real once one exists.
  */
 
-import { Contract, type JsonRpcProvider } from "ethers";
+import { Contract, type ContractEventName, type EventLog, type JsonRpcProvider, type Log } from "ethers";
 
 import loanRegistryAbi from "@/lib/loan-contract/AcorisLoanRegistry.abi.json";
 import type { VerificationEvidenceRef } from "./types";
@@ -157,19 +157,83 @@ export function evidenceFromOnChainTimelines(timelines: LoanTimeline[], chainLab
 }
 
 /**
+ * The block AcorisLoanRegistry was deployed at on CC3 Testnet — read from
+ * the deployment transaction (visible on Blockscout, or Hardhat Ignition's
+ * own deploy output). Required, not defaulted to 0: scanning from genesis
+ * is exactly what produced the real "query timeout of 10 seconds exceeded"
+ * error from CC3's own RPC node the first time on-chain history was tried
+ * live. `undefined` here means the caller must refuse to run the query
+ * rather than silently falling back to an unbounded scan.
+ */
+export function parseDeployBlock(raw: string | undefined): number | undefined {
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+export const LOAN_REGISTRY_DEPLOY_BLOCK: number | undefined = parseDeployBlock(process.env.LOAN_REGISTRY_DEPLOY_BLOCK);
+
+/**
+ * Real RPC nodes reject/timeout an `eth_getLogs` query spanning too wide a
+ * block range in one call — confirmed live against CC3 Testnet's own RPC,
+ * which returned "query timeout of 10 seconds exceeded" for a genesis-to-
+ * latest scan. Splitting into bounded windows and querying sequentially
+ * keeps each individual call small regardless of how far `fromBlock` is
+ * from `latest`, trading one big request for several small, reliable ones.
+ */
+const BLOCK_CHUNK_SIZE = 5000;
+
+/** Pure: splits [fromBlock, toBlock] into inclusive [start, end] windows of at most chunkSize blocks. */
+export function computeBlockChunks(fromBlock: number, toBlock: number, chunkSize: number): Array<[number, number]> {
+  const chunks: Array<[number, number]> = [];
+  for (let start = fromBlock; start <= toBlock; start += chunkSize) {
+    chunks.push([start, Math.min(start + chunkSize - 1, toBlock)]);
+  }
+  return chunks;
+}
+
+async function queryFilterChunked(
+  contract: Contract,
+  filter: ContractEventName,
+  fromBlock: number,
+  toBlock: number,
+): Promise<Array<EventLog | Log>> {
+  const results: Array<EventLog | Log> = [];
+  for (const [start, end] of computeBlockChunks(fromBlock, toBlock, BLOCK_CHUNK_SIZE)) {
+    results.push(...(await contract.queryFilter(filter, start, end)));
+  }
+  return results;
+}
+
+/**
  * Fetches a borrower's full AcorisLoanRegistry history directly from CC3
  * Testnet and reconstructs timelines. Real network call — see module
  * doc comment for why it isn't reachable from this sandbox.
+ *
+ * `fromBlock` should be the registry's actual deployment block (see
+ * docs/ACORIS_LOAN_CONTRACT.md) — scanning from genesis is what produced
+ * the real RPC timeout above in the first place, since the contract cannot
+ * have emitted anything before it existed. Callers that don't have a
+ * deployment block should refuse to call this rather than pass 0 and hope
+ * chunking alone saves them: on a testnet with a long history, a from-
+ * genesis scan is hundreds of chunked requests, not one.
  */
 export async function fetchOnChainLoanHistory(
   provider: JsonRpcProvider,
   registryAddress: string,
   borrowerAddress: string,
+  fromBlock: number,
 ): Promise<LoanTimeline[]> {
   const contract = new Contract(registryAddress, loanRegistryAbi, provider);
+  const latestBlock = await provider.getBlockNumber();
 
   // AgreementProposed indexes `borrower`, so this is a targeted query.
-  const proposedLogs = await contract.queryFilter(contract.filters.AgreementProposed(null, borrowerAddress));
+  const proposedLogs = await queryFilterChunked(
+    contract,
+    contract.filters.AgreementProposed(null, borrowerAddress),
+    fromBlock,
+    latestBlock,
+  );
 
   // FundLoan/RepayLoan deliberately mirror LOAN_PAYMENT_ABI's non-indexed
   // shape (see AcorisLoanRegistry.sol doc comment) so Attestcoin can verify
@@ -177,10 +241,10 @@ export async function fetchOnChainLoanHistory(
   // so these can't be filtered server-side. Fine at hackathon scale; a
   // production indexer/subgraph would replace this full scan.
   const [fundedLogs, repaidLogs, defaultedLogs, cancelledLogs] = await Promise.all([
-    contract.queryFilter(contract.filters.FundLoan()),
-    contract.queryFilter(contract.filters.RepayLoan()),
-    contract.queryFilter(contract.filters.AgreementDefaulted()),
-    contract.queryFilter(contract.filters.AgreementCancelled()),
+    queryFilterChunked(contract, contract.filters.FundLoan(), fromBlock, latestBlock),
+    queryFilterChunked(contract, contract.filters.RepayLoan(), fromBlock, latestBlock),
+    queryFilterChunked(contract, contract.filters.AgreementDefaulted(), fromBlock, latestBlock),
+    queryFilterChunked(contract, contract.filters.AgreementCancelled(), fromBlock, latestBlock),
   ]);
 
   const proposedHashes = new Set(proposedLogs.map((l) => ("args" in l ? l.args.loanHash : undefined)));

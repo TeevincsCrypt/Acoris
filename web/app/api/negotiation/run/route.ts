@@ -9,7 +9,7 @@ import {
   buildVerifiedFinancialProfileFromAttestcoin,
 } from "@/lib/negotiation/financial-profile";
 import { runNegotiation } from "@/lib/negotiation/engine";
-import { evidenceFromOnChainTimelines, fetchOnChainLoanHistory } from "@/lib/negotiation/onchain-history";
+import { evidenceFromOnChainTimelines, fetchOnChainLoanHistory, LOAN_REGISTRY_DEPLOY_BLOCK } from "@/lib/negotiation/onchain-history";
 import type { LoanRequest, NegotiationRound, VerifiedFinancialProfile } from "@/lib/negotiation/types";
 import { isLoanRegistryDeployed, LOAN_REGISTRY_ADDRESS } from "@/lib/loan-contract";
 
@@ -157,9 +157,19 @@ async function resolveFinancialProfile(
       "AcorisLoanRegistry is not deployed on CC3 Testnet in this environment (NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS is unset). See docs/ACORIS_LOAN_CONTRACT.md.",
     );
   }
+  if (LOAN_REGISTRY_DEPLOY_BLOCK === undefined) {
+    throw new Error(
+      "LOAN_REGISTRY_DEPLOY_BLOCK is not configured — reading on-chain history needs a starting block so it doesn't have to scan the entire chain from genesis (confirmed to time out on CC3 Testnet's own RPC node). Set it to the block number AcorisLoanRegistry was deployed at. See docs/ACORIS_LOAN_CONTRACT.md.",
+    );
+  }
   const provider = new JsonRpcProvider(CC3_TESTNET_RPC_HTTP);
   try {
-    const timelines = await fetchOnChainLoanHistory(provider, LOAN_REGISTRY_ADDRESS as string, evidence.borrowerAddress);
+    const timelines = await fetchOnChainLoanHistory(
+      provider,
+      LOAN_REGISTRY_ADDRESS as string,
+      evidence.borrowerAddress,
+      LOAN_REGISTRY_DEPLOY_BLOCK,
+    );
     return buildVerifiedFinancialProfile(evidenceFromOnChainTimelines(timelines));
   } finally {
     provider.destroy();

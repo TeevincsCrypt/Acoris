@@ -13,8 +13,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  computeBlockChunks,
   computeOnTimeRepaymentRate,
   evidenceFromOnChainTimelines,
+  parseDeployBlock,
   reconstructLoanTimelines,
   type AmountEvent,
   type DefaultedEvent,
@@ -239,4 +241,49 @@ test("evidenceFromOnChainTimelines only includes repaid/defaulted outcomes, carr
   const defaultedEvidence = evidence.find((e) => e.transactionHash === "0xpropose-0xd2");
   assert.ok(defaultedEvidence, "a defaulted loan with no repay tx falls back to its propose tx hash");
   assert.equal(defaultedEvidence?.status, "failed");
+});
+
+// ---------------------------------------------------------------------------
+// computeBlockChunks / parseDeployBlock — added after a live CC3 Testnet RPC
+// call timed out ("query timeout of 10 seconds exceeded") scanning
+// eth_getLogs from genesis to latest. Chunking bounds each individual
+// request; requiring a configured deploy block avoids needing thousands of
+// chunks just to skip empty pre-deployment history.
+// ---------------------------------------------------------------------------
+
+test("computeBlockChunks splits an exact multiple of chunkSize into equal windows", () => {
+  assert.deepEqual(computeBlockChunks(0, 14999, 5000), [
+    [0, 4999],
+    [5000, 9999],
+    [10000, 14999],
+  ]);
+});
+
+test("computeBlockChunks's last window is truncated to toBlock when the range isn't an exact multiple", () => {
+  assert.deepEqual(computeBlockChunks(1000, 11500, 5000), [
+    [1000, 5999],
+    [6000, 10999],
+    [11000, 11500],
+  ]);
+});
+
+test("computeBlockChunks returns a single window when the whole range fits in one chunk", () => {
+  assert.deepEqual(computeBlockChunks(100, 200, 5000), [[100, 200]]);
+});
+
+test("computeBlockChunks returns one window (fromBlock==toBlock) for a single-block range", () => {
+  assert.deepEqual(computeBlockChunks(42, 42, 5000), [[42, 42]]);
+});
+
+test("parseDeployBlock accepts a valid non-negative integer string", () => {
+  assert.equal(parseDeployBlock("12345"), 12345);
+  assert.equal(parseDeployBlock("0"), 0);
+});
+
+test("parseDeployBlock rejects undefined, empty, non-numeric, negative, and fractional input", () => {
+  assert.equal(parseDeployBlock(undefined), undefined);
+  assert.equal(parseDeployBlock(""), undefined);
+  assert.equal(parseDeployBlock("not-a-number"), undefined);
+  assert.equal(parseDeployBlock("-5"), undefined);
+  assert.equal(parseDeployBlock("12.5"), undefined);
 });
