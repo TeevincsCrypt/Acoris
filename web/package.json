@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@gluwa/usc-sdk": "^0.18.0",
     "ethers": "^6.17.0",
     "next": "16.3.4",
     "react": "19.2.8",
@@ -23,6 +24,7 @@
     "eslint-config-next": "16.3.4",
     "playwright": "^1.63.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }

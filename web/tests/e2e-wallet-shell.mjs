@@ -37,8 +37,12 @@ async function waitForServer(url, timeoutMs = 30000) {
 }
 
 async function main() {
-  const server = spawn("npx", ["next", "dev", "-p", String(PORT)], {
-    cwd: new URL("..", import.meta.url).pathname,
+  const projectRoot = new URL("..", import.meta.url).pathname;
+  // Spawn the `next` binary directly (not via `npx`) so SIGTERM below
+  // reaches the actual dev server process instead of an npx wrapper that
+  // may not propagate the signal to its child.
+  const server = spawn(`${projectRoot}node_modules/.bin/next`, ["dev", "-p", String(PORT)], {
+    cwd: projectRoot,
     stdio: "inherit",
   });
 

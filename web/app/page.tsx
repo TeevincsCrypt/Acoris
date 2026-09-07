@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { WalletPanel } from "@/components/WalletPanel";
 import { NetworkInfoCard } from "@/components/NetworkInfoCard";
 
@@ -28,6 +30,12 @@ export default function Home() {
           This panel performs genuine reads against whatever network your wallet is
           connected to — no chain state is simulated. Connect a wallet on CC3 Testnet
           to see a live balance and block number.
+        </p>
+
+        <p className="mt-6 text-center text-sm">
+          <Link href="/attestcoin" className="text-zinc-500 underline hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
+            Phase 2: Attestcoin verification →
+          </Link>
         </p>
       </div>
     </main>

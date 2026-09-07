@@ -3,11 +3,15 @@
 Next.js application shell for Acoris, an AI-powered DeFi negotiation protocol
 on Creditcoin CC3 Testnet.
 
-## Phase 1 status
+## Status
 
-Application shell + CC3 Testnet wallet/network integration. See
-`../docs/ACORIS_TECHNICAL_FOUNDATION_REPORT.md` for the verified network,
-SDK, and precompile facts this build follows.
+- **Phase 1**: application shell + CC3 Testnet wallet/network integration.
+  See `../docs/ACORIS_TECHNICAL_FOUNDATION_REPORT.md` for the verified
+  network, SDK, and precompile facts this build follows.
+- **Phase 2**: Attestcoin (`@gluwa/usc-sdk@0.18.0`) verification pipeline —
+  `lib/attestcoin.ts`, `/api/attestcoin/*`, `/attestcoin` page. See
+  `../docs/ACORIS_ATTESTCOIN_VERIFICATION.md` for the exact live flow and
+  this environment's network limitations.
 
 ## Develop
 
@@ -28,12 +32,25 @@ chain state is simulated in the app itself.
 npm run lint
 npx tsc --noEmit
 npm run build
-node tests/e2e-wallet-shell.mjs   # Playwright smoke test w/ a mock EIP-1193 provider
+node tests/e2e-wallet-shell.mjs           # Phase 1: mock-wallet Playwright smoke test
+npx tsx --test tests/attestcoin.unit.test.ts   # Phase 2: deterministic decode/logic tests
+node tests/e2e-attestcoin.mjs             # Phase 2: real pipeline through the real app
 ```
 
-The e2e script spawns its own `next dev` on port 3100 and exercises the
-wallet connect / wrong-network / switch-network (direct + `wallet_addEthereumChain`
+`e2e-wallet-shell.mjs` spawns its own `next dev` and exercises the wallet
+connect / wrong-network / switch-network (direct + `wallet_addEthereumChain`
 fallback) / disconnect flows against an injected mock wallet, so it can run
 without a browser extension. It verifies our own app logic reacts correctly
 to standard EIP-1193/EIP-3085/EIP-3326 responses — it does not simulate or
 assert anything about real Creditcoin chain state.
+
+`attestcoin.unit.test.ts` tests only pure, non-network logic (chain-key
+resolution, byte decoding) against real captured on-chain values — see the
+file header for where those values come from.
+
+`e2e-attestcoin.mjs` spawns its own `next dev` and drives the real
+`/api/attestcoin/*` routes and `/attestcoin` page — no mocking. In an
+environment without access to `*.creditcoin.network` it asserts the failure
+is reported honestly (real stage + error, no fabricated ✓ or fact); with
+real network access it asserts the full pipeline reaches a genuine verified
+result.
