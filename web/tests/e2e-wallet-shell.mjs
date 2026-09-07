@@ -195,6 +195,70 @@ async function main() {
       await page.close();
     }
 
+    // ---- Scenario 4: Rabby-style wallet nests 4902 under error.data.originalError.code, not error.code ----
+    {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        let currentChain = "0x1";
+        let chainKnown = false;
+        const account = "0xb3BDcEBa27FA9A8a36a3A50293FcDCf8C416C400";
+        window.ethereum = {
+          isMetaMask: false,
+          _listeners: {},
+          on(event, handler) {
+            (this._listeners[event] ||= []).push(handler);
+          },
+          removeListener(event, handler) {
+            this._listeners[event] = (this._listeners[event] || []).filter((h) => h !== handler);
+          },
+          async request({ method, params }) {
+            if (method === "eth_requestAccounts") return [account];
+            if (method === "eth_chainId") return currentChain;
+            if (method === "eth_getBalance") return "0xDE0B6B3A7640000"; // 1 ether-equivalent
+            if (method === "eth_blockNumber") return "0x9";
+            if (method === "wallet_switchEthereumChain") {
+              if (!chainKnown) {
+                // Real shape reported from a live Rabby wallet session: the
+                // raw 4902 is two levels deeper than MetaMask's, behind a
+                // generic -32603 "Internal JSON-RPC error".
+                const message = 'Unrecognized chain ID "0x18e8f". Try adding the chain using wallet_switchEthereumChain first.';
+                throw {
+                  code: -32603,
+                  message,
+                  data: { originalError: { code: 4902, message } },
+                };
+              }
+              currentChain = params[0].chainId;
+              this._listeners["chainChanged"]?.forEach((h) => h(currentChain));
+              return null;
+            }
+            if (method === "wallet_addEthereumChain") {
+              chainKnown = true;
+              currentChain = params[0].chainId;
+              this._listeners["chainChanged"]?.forEach((h) => h(currentChain));
+              return null;
+            }
+            return null;
+          },
+        };
+      });
+
+      await page.goto(BASE_URL, { waitUntil: "networkidle" });
+      await page.click('button:has-text("Connect Wallet")');
+      await page.waitForSelector("text=Wrong network", { timeout: 5000 });
+      await page.click('button:has-text("Switch to CC3 Testnet")');
+      await page.waitForTimeout(1000);
+
+      const bodyText = await page.evaluate(() => document.body.textContent);
+      assert(
+        bodyText.includes("Connected") && !bodyText.includes("Wrong network"),
+        "Rabby-style nested 4902 (error.data.originalError.code) still triggers the addEthereumChain fallback",
+      );
+      assert(!bodyText.includes("could not coalesce error"), "the raw ethers UNKNOWN_ERROR text is never shown as if it were unrecoverable");
+
+      await page.close();
+    }
+
     await browser.close();
     console.log("\nALL PHASE 1 SMOKE CHECKS PASSED");
   } finally {

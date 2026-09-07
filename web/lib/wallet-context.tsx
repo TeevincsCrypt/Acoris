@@ -77,6 +77,28 @@ function getInjectedWalletServerSnapshot(): boolean {
   return false;
 }
 
+/**
+ * Walks a thrown wallet/provider error looking for `targetCode` at any
+ * nesting depth. Different wallets wrap EIP-1193 error codes differently —
+ * MetaMask exposes it as `err.error.code`, while Rabby (and likely others)
+ * bury it one level further at `err.error.data.originalError.code` behind a
+ * generic -32603 "Internal JSON-RPC error" — so this checks every object
+ * along the `.error` / `.data` / `.data.originalError` chain instead of one
+ * fixed depth.
+ */
+export function hasProviderErrorCode(err: unknown, targetCode: number): boolean {
+  const seen = new Set<unknown>();
+  let node: unknown = err;
+  for (let depth = 0; depth < 6 && node && typeof node === "object" && !seen.has(node); depth++) {
+    seen.add(node);
+    const obj = node as Record<string, unknown>;
+    if (obj.code === targetCode) return true;
+    const data = obj.data as Record<string, unknown> | undefined;
+    node = obj.error ?? data?.originalError ?? obj.data ?? obj.originalError;
+  }
+  return false;
+}
+
 function useHasInjectedWallet(): boolean {
   return useSyncExternalStore(
     subscribeToInjectedWallet,
@@ -181,13 +203,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // 4902 = chain not yet added to the wallet (EIP-3326). ethers'
       // BrowserProvider wraps EIP-1193 errors into its own error shape
       // (top-level `.code` becomes an ethers code like "UNKNOWN_ERROR"),
-      // and re-attaches the original provider error under `.error`, so
-      // the raw wallet error code must be read from there — verified
+      // re-attaching the original provider error under `.error` — verified
       // against node_modules/ethers/lib.commonjs/providers/provider-jsonrpc.js
-      // (getRpcError) and utils/errors.js (makeError).
-      const code = (switchErr as { error?: { code?: number }; code?: number })?.error?.code
-        ?? (switchErr as { code?: number })?.code;
-      if (code === 4902) {
+      // (getRpcError) and utils/errors.js (makeError). MetaMask puts 4902
+      // directly on that `.error.code`, but other wallets nest it one level
+      // deeper still — e.g. Rabby returns `.error = {code: -32603, data:
+      // {originalError: {code: 4902, ...}}}` (confirmed against a real
+      // "could not coalesce error" report from a live Rabby session), so the
+      // whole chain has to be walked rather than checking one fixed depth.
+      if (hasProviderErrorCode(switchErr, 4902)) {
         try {
           await provider.send("wallet_addEthereumChain", [CC3_TESTNET_ADD_CHAIN_PARAMS]);
         } catch (addErr) {
