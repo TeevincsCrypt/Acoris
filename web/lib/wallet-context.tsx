@@ -11,7 +11,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { BrowserProvider, formatEther, type Eip1193Provider } from "ethers";
+import { BrowserProvider, formatEther, type Eip1193Provider, type JsonRpcSigner } from "ethers";
 
 import {
   CC3_TESTNET_ADD_CHAIN_PARAMS,
@@ -54,6 +54,8 @@ interface WalletContextValue {
   disconnect: () => void;
   switchToCC3Testnet: () => Promise<void>;
   refresh: () => Promise<void>;
+  /** Signer for the connected account, for write transactions (e.g. Phase 4's loan contract). Throws if no wallet is connected. */
+  getSigner: () => Promise<JsonRpcSigner>;
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -213,6 +215,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [refresh]);
 
+  const getSigner = useCallback(async (): Promise<JsonRpcSigner> => {
+    const provider = getBrowserProvider();
+    if (!provider) throw new Error("No wallet available");
+    return provider.getSigner();
+  }, [getBrowserProvider]);
+
   const disconnect = useCallback(() => {
     setAddress(null);
     addressRef.current = null;
@@ -273,6 +281,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       disconnect,
       switchToCC3Testnet,
       refresh,
+      getSigner,
     }),
     [
       effectiveStatus,
@@ -285,6 +294,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       disconnect,
       switchToCC3Testnet,
       refresh,
+      getSigner,
     ],
   );
 

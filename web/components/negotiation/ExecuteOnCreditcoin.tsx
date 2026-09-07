@@ -1,0 +1,115 @@
+"use client";
+
+import { useState } from "react";
+
+import { useWallet } from "@/lib/wallet-context";
+import {
+  computeLoanHash,
+  isLoanRegistryDeployed,
+  LOAN_REGISTRY_ADDRESS,
+  proposeAgreementOnChain,
+} from "@/lib/loan-contract";
+import type { LoanTerms } from "@/lib/negotiation/types";
+
+const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
+
+/**
+ * Phase 4: executes the negotiated agreement on Creditcoin CC3 Testnet by
+ * calling AcorisLoanRegistry.proposeAgreement with the borrower's own
+ * connected wallet (see lib/wallet-context.tsx), escrowing collateral and
+ * recording the deal on-chain. Genuinely disabled — not just visually —
+ * until NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS is actually set to a deployed
+ * contract; see docs/ACORIS_LOAN_CONTRACT.md for why that isn't the case
+ * in this project's sandbox (no funded deployer key, no network access to
+ * CC3 Testnet).
+ */
+export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiationId: string; finalTerms: LoanTerms }) {
+  const wallet = useWallet();
+  const [lenderAddress, setLenderAddress] = useState("");
+  const [state, setState] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  if (finalTerms.status !== "accepted") {
+    return (
+      <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-600">
+        Nothing to execute — this negotiation ended as {finalTerms.status.toUpperCase()}, not an accepted agreement.
+      </p>
+    );
+  }
+
+  if (!isLoanRegistryDeployed()) {
+    return (
+      <button
+        disabled
+        title="Phase 4: AcorisLoanRegistry is not deployed on CC3 Testnet in this environment (no funded key, no network access — see docs/ACORIS_LOAN_CONTRACT.md)"
+        className="mt-4 w-full cursor-not-allowed rounded-lg border border-black/10 px-4 py-2.5 text-sm font-medium text-zinc-400 dark:border-white/10 dark:text-zinc-600"
+      >
+        Execute on Creditcoin — not yet executable (Phase 4: contract not deployed)
+      </button>
+    );
+  }
+
+  const walletReady = wallet.status === "connected";
+  const validLender = ADDRESS_PATTERN.test(lenderAddress);
+  const canExecute = finalTerms.status === "accepted" && walletReady && validLender && state !== "submitting";
+
+  async function handleExecute() {
+    setState("submitting");
+    setErrorMessage(null);
+    try {
+      const signer = await wallet.getSigner();
+      const loanHash = computeLoanHash(negotiationId);
+      const tx = await proposeAgreementOnChain(signer, {
+        loanHash,
+        lenderAddress,
+        principalDealUnits: finalTerms.amount,
+        collateralDealUnits: finalTerms.collateral,
+        aprPercent: finalTerms.apr,
+        durationDays: finalTerms.duration,
+      });
+      const receipt = await tx.wait();
+      setTxHash(receipt?.hash ?? tx.hash);
+      setState("success");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Transaction failed");
+      setState("error");
+    }
+  }
+
+  return (
+    <div className="mt-4 space-y-2">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        Registry deployed at <span className="font-mono">{LOAN_REGISTRY_ADDRESS}</span>. Proposing escrows your
+        collateral on-chain from your connected wallet.
+      </p>
+      {!walletReady && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">Connect a wallet on CC3 Testnet to execute.</p>
+      )}
+      <input
+        value={lenderAddress}
+        onChange={(e) => setLenderAddress(e.target.value)}
+        placeholder="Lender wallet address (0x…)"
+        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 font-mono text-xs dark:border-white/10"
+      />
+      <button
+        onClick={handleExecute}
+        disabled={!canExecute}
+        className="w-full rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+      >
+        {state === "submitting" ? "Submitting…" : "Propose Agreement On-Chain"}
+      </button>
+      {state === "success" && (
+        <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          Proposed on-chain. Tx: <span className="font-mono">{txHash}</span>. Collateral escrowed — waiting for the
+          lender to call fundAgreement.
+        </p>
+      )}
+      {state === "error" && (
+        <p className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
+          {errorMessage}
+        </p>
+      )}
+    </div>
+  );
+}

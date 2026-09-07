@@ -8,6 +8,8 @@
 
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { proposeBorrowerAction, proposeLenderAction, type AgentDecision } from "./ai-agent";
 import { MAX_NEGOTIATION_ROUNDS, deriveBorrowerConstraints, deriveLenderConstraints, type LenderRiskPolicy } from "./constraints";
 import { deriveFinalTerms, enforceAndBuildRound, otherRole } from "./round-logic";
@@ -99,6 +101,7 @@ export async function runNegotiation(input: RunNegotiationInput): Promise<Negoti
   }
 
   return {
+    negotiationId: randomUUID(),
     rounds: history,
     finalTerms: deriveFinalTerms(history),
     financialProfileUsed: input.financialProfile,

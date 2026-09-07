@@ -150,6 +150,8 @@ export interface LoanTerms {
 }
 
 export interface NegotiationResult {
+  /** Stable id for this negotiation, used to derive the on-chain loanHash (see lib/loan-contract). */
+  negotiationId: string;
   rounds: NegotiationRound[];
   finalTerms: LoanTerms;
   financialProfileUsed: VerifiedFinancialProfile;

@@ -12,9 +12,12 @@ import type {
   VerifiedFinancialProfile,
 } from "@/lib/negotiation/types";
 
+import { ExecuteOnCreditcoin } from "./ExecuteOnCreditcoin";
+
 type EvidenceMode = "none" | "unverified" | "verify";
 
 interface NegotiationApiResult {
+  negotiationId: string;
   rounds: NegotiationRound[];
   finalTerms: LoanTerms;
   financialProfileUsed: VerifiedFinancialProfile;
@@ -263,13 +266,7 @@ export function NegotiationConsole() {
             <Row label="Agreement status" value={result.finalTerms.status.toUpperCase()} />
           </dl>
 
-          <button
-            disabled
-            title="Phase 4: the LoanAgreement contract does not exist yet"
-            className="mt-4 w-full cursor-not-allowed rounded-lg border border-black/10 px-4 py-2.5 text-sm font-medium text-zinc-400 dark:border-white/10 dark:text-zinc-600"
-          >
-            Execute on Creditcoin — not yet executable (Phase 4)
-          </button>
+          <ExecuteOnCreditcoin negotiationId={result.negotiationId} finalTerms={result.finalTerms} />
         </section>
       )}
     </div>

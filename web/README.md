@@ -17,6 +17,12 @@ on Creditcoin CC3 Testnet.
   (Borrower AI / Lender AI via `@anthropic-ai/sdk`, `claude-opus-5`) with
   every financial constraint enforced by deterministic code, not the LLM.
   See `../docs/ACORIS_NEGOTIATION_ENGINE.md`.
+- **Phase 4**: `AcorisLoanRegistry.sol` (in `../contracts/`) executes
+  accepted negotiations on CC3 Testnet — `lib/loan-contract/*`,
+  `components/negotiation/ExecuteOnCreditcoin.tsx`. Client-side only: the
+  connected wallet signs its own transactions, no server secrets. See
+  `../docs/ACORIS_LOAN_CONTRACT.md` for the contract, its 20 real-EVM tests,
+  and why it isn't deployed in this sandbox.
 
 ## Develop
 
@@ -36,6 +42,11 @@ the server environment (e.g. `web/.env.local`, which is gitignored). Without
 it, the API returns a clear `503 {code: "ai-unavailable"}` rather than a
 fabricated result.
 
+To execute an accepted negotiation on-chain, deploy `AcorisLoanRegistry`
+(see `../contracts/README.md`) and set `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS`
+in `web/.env.local`. Without it, "Execute on Creditcoin" stays genuinely
+disabled — the check is a real deployment-address lookup, not cosmetic.
+
 ## Test
 
 ```bash
@@ -47,7 +58,12 @@ npx tsx --test tests/attestcoin.unit.test.ts   # Phase 2: deterministic decode/l
 node tests/e2e-attestcoin.mjs                  # Phase 2: real pipeline through the real app
 npx tsx --test tests/negotiation.unit.test.ts  # Phase 3A: deterministic constraint/engine tests
 node tests/e2e-negotiation.mjs                 # Phase 3A: real pipeline through the real app
+npx tsx --test tests/loan-contract.unit.test.ts # Phase 4: deterministic loan-contract client helpers
 ```
+
+Contract-level tests (escrow, funding, repayment interest, defaults, access
+control — 20 tests, real EVM execution) live in `../contracts/test/`, run
+with `cd ../contracts && npx hardhat test`.
 
 `e2e-wallet-shell.mjs` spawns its own `next dev` and exercises the wallet
 connect / wrong-network / switch-network (direct + `wallet_addEthereumChain`
@@ -77,3 +93,10 @@ this logic lives in a separate `round-logic.ts` module.
 responses. Without `ANTHROPIC_API_KEY` configured it asserts the failure is
 reported honestly (a real error, no fabricated rounds or terms); with a key
 configured it asserts a completed negotiation is internally consistent.
+
+`loan-contract.unit.test.ts` tests only `lib/loan-contract`'s pure helpers
+(loanHash derivation, APR/unit conversion) and that it throws rather than
+pointing at a fabricated address when no contract is deployed. The contract
+itself has no browser-reachable e2e test here — `ExecuteOnCreditcoin` only
+renders once a negotiation reaches `accepted`, which needs a real AI call
+this sandbox can't make; see `../docs/ACORIS_LOAN_CONTRACT.md`.

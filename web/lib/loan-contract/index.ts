@@ -1,0 +1,136 @@
+/**
+ * Client for AcorisLoanRegistry.sol — the Phase 4 contract that executes
+ * loan agreements reached by Acoris's Phase 3A negotiation engine on
+ * Creditcoin CC3 Testnet. Runs client-side, using the connected wallet's
+ * own signer (see lib/wallet-context.tsx) — no server involvement, no
+ * secrets: the borrower and lender sign their own transactions.
+ *
+ * ABI (AcorisLoanRegistry.abi.json) is copied verbatim from
+ * contracts/artifacts/contracts/AcorisLoanRegistry.sol/AcorisLoanRegistry.json
+ * after a real `hardhat compile` — not hand-written, so it can't drift from
+ * the actual contract. See docs/ACORIS_LOAN_CONTRACT.md.
+ *
+ * NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS is unset until the contract is actually
+ * deployed to CC3 Testnet (blocked in this sandbox — no funded key, no
+ * network access; see docs/ACORIS_LOAN_CONTRACT.md). Every function here
+ * checks for that explicitly and throws LoanRegistryNotDeployedError rather
+ * than silently no-op'ing or pointing at a fabricated address.
+ */
+
+import { Contract, keccak256, parseEther, toUtf8Bytes, type BrowserProvider, type Signer } from "ethers";
+
+import loanRegistryAbi from "./AcorisLoanRegistry.abi.json";
+
+export const LOAN_REGISTRY_ADDRESS: string | undefined = process.env.NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS;
+
+export function isLoanRegistryDeployed(): boolean {
+  return typeof LOAN_REGISTRY_ADDRESS === "string" && LOAN_REGISTRY_ADDRESS.length > 0;
+}
+
+export class LoanRegistryNotDeployedError extends Error {
+  constructor() {
+    super(
+      "AcorisLoanRegistry is not deployed on CC3 Testnet in this environment (NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS is unset). See docs/ACORIS_LOAN_CONTRACT.md.",
+    );
+    this.name = "LoanRegistryNotDeployedError";
+  }
+}
+
+export enum AgreementStatus {
+  None = 0,
+  Proposed = 1,
+  Funded = 2,
+  Repaid = 3,
+  Defaulted = 4,
+  Cancelled = 5,
+}
+
+export interface OnChainAgreement {
+  borrower: string;
+  lender: string;
+  principal: bigint;
+  collateral: bigint;
+  aprBps: number;
+  durationSeconds: number;
+  fundedAt: number;
+  status: AgreementStatus;
+}
+
+function requireDeployed(): string {
+  if (!isLoanRegistryDeployed()) throw new LoanRegistryNotDeployedError();
+  return LOAN_REGISTRY_ADDRESS as string;
+}
+
+export function getLoanRegistryContract(runner: Signer | BrowserProvider): Contract {
+  return new Contract(requireDeployed(), loanRegistryAbi, runner);
+}
+
+/** Derives a stable, unique loanHash for a negotiation so it maps 1:1 to an on-chain agreement. */
+export function computeLoanHash(negotiationId: string): string {
+  return keccak256(toUtf8Bytes(`acoris:negotiation:${negotiationId}`));
+}
+
+/** APR percent (e.g. 7.5) -> basis points (750), the unit the contract stores. */
+export function aprToBps(aprPercent: number): number {
+  return Math.round(aprPercent * 100);
+}
+
+/**
+ * Negotiation amounts (see lib/negotiation/types.ts) are abstract deal
+ * units with no on-chain denomination of their own. For this MVP, executing
+ * an agreement maps them 1:1 onto native CTC via parseEther — a documented
+ * simplification (see docs/ACORIS_LOAN_CONTRACT.md), not a hidden one.
+ */
+export function dealUnitsToWei(amount: number): bigint {
+  return parseEther(amount.toString());
+}
+
+export interface ProposeAgreementParams {
+  loanHash: string;
+  lenderAddress: string;
+  principalDealUnits: number;
+  collateralDealUnits: number;
+  aprPercent: number;
+  durationDays: number;
+}
+
+/** Borrower proposes the agreement on-chain and escrows collateral. Requires the borrower's own signer. */
+export async function proposeAgreementOnChain(signer: Signer, params: ProposeAgreementParams) {
+  const contract = getLoanRegistryContract(signer);
+  const principal = dealUnitsToWei(params.principalDealUnits);
+  const collateral = dealUnitsToWei(params.collateralDealUnits);
+  const aprBps = aprToBps(params.aprPercent);
+  const durationSeconds = Math.round(params.durationDays * 24 * 60 * 60);
+
+  return contract.proposeAgreement(params.loanHash, params.lenderAddress, principal, aprBps, durationSeconds, {
+    value: collateral,
+  });
+}
+
+/** Named lender funds the proposed agreement. Requires the lender's own signer. */
+export async function fundAgreementOnChain(signer: Signer, loanHash: string, principalDealUnits: number) {
+  const contract = getLoanRegistryContract(signer);
+  return contract.fundAgreement(loanHash, { value: dealUnitsToWei(principalDealUnits) });
+}
+
+/** Borrower repays principal + interest. Requires the borrower's own signer. */
+export async function repayOnChain(signer: Signer, loanHash: string) {
+  const contract = getLoanRegistryContract(signer);
+  const owed: bigint = await contract.repaymentAmount(loanHash);
+  return contract.repay(loanHash, { value: owed });
+}
+
+export async function getAgreement(runner: Signer | BrowserProvider, loanHash: string): Promise<OnChainAgreement> {
+  const contract = getLoanRegistryContract(runner);
+  const a = await contract.agreements(loanHash);
+  return {
+    borrower: a.borrower,
+    lender: a.lender,
+    principal: a.principal,
+    collateral: a.collateral,
+    aprBps: Number(a.aprBps),
+    durationSeconds: Number(a.durationSeconds),
+    fundedAt: Number(a.fundedAt),
+    status: Number(a.status) as AgreementStatus,
+  };
+}
