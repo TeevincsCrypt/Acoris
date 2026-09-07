@@ -135,7 +135,6 @@ async function main() {
     {
       const page = await browser.newPage();
       await page.addInitScript(() => {
-        const CC3_HEX = "0x18e8f";
         let currentChain = "0x1";
         let chainKnown = false;
         const account = "0xa2AcCDA17eDa9A8A36A3A50293FCDcf8C416C300";
