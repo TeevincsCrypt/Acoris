@@ -37,6 +37,11 @@ export default function Home() {
             Phase 2: Attestcoin verification →
           </Link>
         </p>
+        <p className="mt-2 text-center text-sm">
+          <Link href="/negotiation" className="text-zinc-500 underline hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
+            Phase 3A: AI credit negotiation →
+          </Link>
+        </p>
       </div>
     </main>
   );
