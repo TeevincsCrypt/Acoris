@@ -4,16 +4,9 @@ import { useEffect, useState } from "react";
 import { formatEther } from "ethers";
 
 import { isLoanRegistryDeployed } from "@/lib/loan-contract";
+import { usePendingLenderReviews } from "@/lib/pending-lender-reviews-context";
 import { shortAddress, useWallet } from "@/lib/wallet-context";
-import {
-  buildActivityFeed,
-  computeActiveLoans,
-  computeDashboardStats,
-  findPendingLenderReviews,
-  timeAgo,
-  type LoanTimelineDto,
-  type PendingLenderReview,
-} from "@/lib/dashboard";
+import { buildActivityFeed, computeActiveLoans, computeDashboardStats, timeAgo, type LoanTimelineDto } from "@/lib/dashboard";
 import { CC3_TESTNET_EXPLORER } from "@/lib/creditcoin";
 
 interface DashboardApiError {
@@ -28,11 +21,11 @@ const ACTIVITY_LABEL: Record<string, string> = {
   cancelled: "Proposal cancelled",
 };
 
-async function fetchTimelines(address: string, role: "borrower" | "lender"): Promise<Response> {
+async function fetchTimelines(address: string): Promise<Response> {
   return fetch("/api/dashboard", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address, role }),
+    body: JSON.stringify({ address, role: "borrower" }),
   });
 }
 
@@ -43,18 +36,15 @@ async function fetchTimelines(address: string, role: "borrower" | "lender"): Pro
  * data). No synthetic "reputation score", no placeholder activity: zero real
  * loans means zero shown, not a demo fixture.
  *
- * Queries the chain twice: once as borrower (this wallet's own credit
- * activity — the original purpose of this page) and once as lender (deals
- * someone else proposed naming this wallet as the counterparty). The lender
- * query is what "Loans Awaiting Your Review" below is built from — it's the
- * closest thing this product has to a notification, and it works without
- * needing anyone to have sent anything: it just appears the moment the
- * address matches.
+ * "Loans Awaiting Your Review" below comes from PendingLenderReviewsProvider
+ * (mounted in layout.tsx) rather than a fetch of its own — that's the same
+ * shared poll the nav's Portfolio badge reads, so the two never disagree
+ * about what's pending, and this page doesn't duplicate the request.
  */
 export function DashboardPanel() {
   const wallet = useWallet();
+  const { reviews: pendingReviews } = usePendingLenderReviews();
   const [timelines, setTimelines] = useState<LoanTimelineDto[] | null>(null);
-  const [pendingReviews, setPendingReviews] = useState<PendingLenderReview[]>([]);
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<DashboardApiError | null>(null);
@@ -69,31 +59,14 @@ export function DashboardPanel() {
       setLoading(true);
       setError(null);
       try {
-        // The borrower view is this dashboard's core purpose, so its
-        // failure is fatal to the page. The lender-side query is a bonus —
-        // "does anything need your review as a lender" — so a failure
-        // there just means that section doesn't appear, rather than
-        // blanking out a borrower's otherwise-working dashboard.
-        const [borrowerRes, lenderRes] = await Promise.all([
-          fetchTimelines(address, "borrower"),
-          fetchTimelines(address, "lender").catch(() => null),
-        ]);
+        const res = await fetchTimelines(address);
         if (cancelled) return;
-
-        if (!borrowerRes.ok) {
-          setError((await borrowerRes.json()) as DashboardApiError);
+        if (!res.ok) {
+          setError((await res.json()) as DashboardApiError);
           return;
         }
-        const borrowerData = await borrowerRes.json();
-        setTimelines((borrowerData as { timelines: LoanTimelineDto[] }).timelines);
-
-        if (lenderRes?.ok) {
-          const lenderData = await lenderRes.json();
-          setPendingReviews(findPendingLenderReviews((lenderData as { timelines: LoanTimelineDto[] }).timelines));
-        } else {
-          setPendingReviews([]);
-        }
-
+        const data = await res.json();
+        setTimelines((data as { timelines: LoanTimelineDto[] }).timelines);
         setFetchedAt(Math.floor(Date.now() / 1000));
       } catch (err) {
         if (!cancelled) setError({ error: err instanceof Error ? err.message : "Request failed" });

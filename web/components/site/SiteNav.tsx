@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { usePendingLenderReviews } from "@/lib/pending-lender-reviews-context";
+import { useWallet } from "@/lib/wallet-context";
 import { AcorisLogo } from "./AcorisLogo";
 import { NavWalletButton } from "./NavWalletButton";
 
@@ -37,6 +39,13 @@ export function SiteNav() {
   const isLanding = pathname === "/";
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Only trust the shared poll while a wallet is actually connected — see
+  // PendingLenderReviewsProvider's own comment on why it doesn't clear
+  // stale state itself on disconnect.
+  const wallet = useWallet();
+  const { reviews } = usePendingLenderReviews();
+  const pendingCount = wallet.status === "connected" ? reviews.length : 0;
+
   return (
     <header className="sticky top-0 z-50 border-b border-ink/5 bg-cream/85 backdrop-blur-md">
       <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 sm:gap-6 sm:px-8">
@@ -53,11 +62,12 @@ export function SiteNav() {
                 <Link
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className={`rounded-full px-3.5 py-2 text-sm transition-colors ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm transition-colors ${
                     active ? "bg-ink/5 text-ink" : "text-ink-soft hover:text-ink"
                   }`}
                 >
                   {link.label}
+                  {link.href === "/dashboard" && pendingCount > 0 && <NavBadge count={pendingCount} />}
                 </Link>
               </li>
             );
@@ -101,11 +111,12 @@ export function SiteNav() {
                     href={link.href}
                     onClick={() => setMenuOpen(false)}
                     aria-current={active ? "page" : undefined}
-                    className={`block rounded-lg px-3 py-2.5 text-[15px] transition-colors ${
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-[15px] transition-colors ${
                       active ? "bg-ink/5 font-medium text-ink" : "text-ink-soft hover:bg-ink/5 hover:text-ink"
                     }`}
                   >
                     {link.label}
+                    {link.href === "/dashboard" && pendingCount > 0 && <NavBadge count={pendingCount} />}
                   </Link>
                 </li>
               );
@@ -114,6 +125,18 @@ export function SiteNav() {
         </div>
       )}
     </header>
+  );
+}
+
+/** A real count, not a generic dot — someone glancing at the nav should be able to tell "1" from "6" without opening the page. */
+function NavBadge({ count }: { count: number }) {
+  return (
+    <span
+      aria-label={`${count} loan${count === 1 ? "" : "s"} awaiting your review`}
+      className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-violet px-1 text-[10px] font-bold leading-none text-white"
+    >
+      {count}
+    </span>
   );
 }
 

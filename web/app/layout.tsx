@@ -3,6 +3,7 @@ import { Geist_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteNav } from "@/components/site/SiteNav";
+import { PendingLenderReviewsProvider } from "@/lib/pending-lender-reviews-context";
 import { WalletProvider } from "@/lib/wallet-context";
 
 const instrumentSans = Instrument_Sans({
@@ -31,9 +32,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col bg-cream text-ink">
         <WalletProvider>
-          <SiteNav />
-          <div className="flex flex-1 flex-col">{children}</div>
-          <SiteFooter />
+          <PendingLenderReviewsProvider>
+            <SiteNav />
+            <div className="flex flex-1 flex-col">{children}</div>
+            <SiteFooter />
+          </PendingLenderReviewsProvider>
         </WalletProvider>
       </body>
     </html>
