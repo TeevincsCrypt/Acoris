@@ -135,6 +135,9 @@ export default function Home() {
           <Link href="/negotiation" className="text-zinc-500 underline hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
             AI credit negotiation →
           </Link>
+          <Link href="/dashboard" className="text-zinc-500 underline hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
+            Your loan portfolio →
+          </Link>
         </nav>
       </div>
     </main>

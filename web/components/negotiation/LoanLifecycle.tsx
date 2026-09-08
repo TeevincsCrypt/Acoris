@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatEther } from "ethers";
 
 import { useWallet } from "@/lib/wallet-context";
@@ -15,7 +15,31 @@ import {
   type OnChainAgreement,
 } from "@/lib/loan-contract";
 import { TransactionProof } from "@/components/TransactionProof";
+import type { VerifiedFinancialProfile } from "@/lib/negotiation/types";
 import { LifecycleStepper, type LifecycleStage } from "./LifecycleStepper";
+
+async function fetchCreditProfile(borrowerAddress: string): Promise<VerifiedFinancialProfile | null> {
+  try {
+    const res = await fetch("/api/credit-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ financialEvidence: { mode: "onchain", borrowerAddress } }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data as { profile: VerifiedFinancialProfile }).profile;
+  } catch {
+    return null;
+  }
+}
+
+function successfulRepaymentsOf(profile: VerifiedFinancialProfile | null): number {
+  return profile?.status === "verified" ? profile.successfulRepaymentCount : 0;
+}
+
+function verifiedVolumeOf(profile: VerifiedFinancialProfile | null): bigint {
+  return profile?.status === "verified" ? BigInt(profile.verifiedRepaymentVolume) : BigInt(0);
+}
 
 /** Polling interval while the agreement is still in a non-terminal state — picks up actions taken by the counterparty in another browser. */
 const POLL_MS = 20000;
@@ -77,6 +101,11 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [lastTxHash, setLastTxHash] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [creditBefore, setCreditBefore] = useState<VerifiedFinancialProfile | null>(null);
+  const [creditAfter, setCreditAfter] = useState<VerifiedFinancialProfile | null>(null);
+  const [repaidAmountWei, setRepaidAmountWei] = useState<bigint | null>(null);
+  const [creditSnapshotTaken, setCreditSnapshotTaken] = useState(false);
+  const creditSnapshotStarted = useRef(false);
 
   const load = useCallback(async () => {
     if (wallet.status !== "connected") return;
@@ -132,7 +161,23 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
     return () => clearInterval(interval);
   }, [agreement, load]);
 
-  async function runAction(action: () => Promise<{ wait: () => Promise<{ hash: string } | null>; hash: string }>) {
+  // One-time real snapshot of the borrower's verified credit profile, taken
+  // as soon as the agreement (and the connected wallet's role) is known —
+  // this is what "before" gets compared against once a real repayment
+  // actually completes below. Never re-taken after the first successful
+  // read, so it stays a genuine "before" baseline rather than drifting.
+  useEffect(() => {
+    if (!agreement || creditSnapshotTaken || creditSnapshotStarted.current) return;
+    if (!sameAddress(wallet.address, agreement.borrower)) return;
+    creditSnapshotStarted.current = true;
+    void (async () => {
+      const profile = await fetchCreditProfile(agreement.borrower);
+      setCreditSnapshotTaken(true);
+      setCreditBefore(profile);
+    })();
+  }, [agreement, wallet.address, creditSnapshotTaken]);
+
+  async function runAction(action: () => Promise<{ wait: () => Promise<{ hash: string } | null>; hash: string }>): Promise<boolean> {
     setActionState("submitting");
     setActionError(null);
     try {
@@ -141,9 +186,21 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
       setLastTxHash(receipt?.hash ?? tx.hash);
       setActionState("idle");
       await load();
+      return true;
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Transaction failed");
       setActionState("error");
+      return false;
+    }
+  }
+
+  async function handleRepay() {
+    const amountBeingRepaid = repaymentOwed;
+    const success = await runAction(async () => repayOnChain(await wallet.getSigner(), loanHash));
+    if (success && agreement) {
+      setRepaidAmountWei(amountBeingRepaid);
+      const after = await fetchCreditProfile(agreement.borrower);
+      setCreditAfter(after);
     }
   }
 
@@ -231,11 +288,7 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
           />
         )}
         {agreement.status === AgreementStatus.Funded && isBorrower && (
-          <ActionButton
-            label={submitting ? "Repaying…" : "Repay"}
-            disabled={submitting}
-            onClick={() => runAction(async () => repayOnChain(await wallet.getSigner(), loanHash))}
-          />
+          <ActionButton label={submitting ? "Repaying…" : "Repay"} disabled={submitting} onClick={() => handleRepay()} />
         )}
         {agreement.status === AgreementStatus.Funded && isLender && isPastDue && (
           <ActionButton
@@ -263,6 +316,47 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
         <p className="text-xs text-emerald-600 dark:text-emerald-400">
           Repaid in full. Lender received principal + interest, borrower&apos;s collateral was returned.
         </p>
+      )}
+
+      {creditAfter && (
+        <div className="rounded-lg border border-emerald-600/20 bg-emerald-50 p-3 text-xs dark:border-emerald-400/20 dark:bg-emerald-950">
+          <p className="text-sm font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+            Loan repaid ✓
+          </p>
+          <dl className="mt-2 space-y-1 text-emerald-900 dark:text-emerald-100">
+            <div className="flex justify-between">
+              <dt>Borrowed</dt>
+              <dd className="font-mono">{formatEther(agreement.principal)} tCTC</dd>
+            </div>
+            {repaidAmountWei !== null && (
+              <div className="flex justify-between">
+                <dt>Repaid (principal + interest)</dt>
+                <dd className="font-mono">{formatEther(repaidAmountWei)} tCTC</dd>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <dt>Duration</dt>
+              <dd className="font-mono">{Math.round(agreement.durationSeconds / 86400)} days</dd>
+            </div>
+          </dl>
+          <p className="mt-3 font-semibold text-emerald-700 dark:text-emerald-300">
+            Your verified credit history has been updated.
+          </p>
+          <dl className="mt-1 space-y-1 text-emerald-900 dark:text-emerald-100">
+            <div className="flex justify-between">
+              <dt>Successful repayments</dt>
+              <dd className="font-mono">
+                {successfulRepaymentsOf(creditBefore)} → {successfulRepaymentsOf(creditAfter)}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt>Verified repayment volume</dt>
+              <dd className="font-mono">
+                {formatEther(verifiedVolumeOf(creditBefore))} → {formatEther(verifiedVolumeOf(creditAfter))} tCTC
+              </dd>
+            </div>
+          </dl>
+        </div>
       )}
       {agreement.status === AgreementStatus.Defaulted && (
         <p className="text-xs text-red-600 dark:text-red-400">

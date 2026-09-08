@@ -57,6 +57,8 @@ export interface LoanTimeline {
   borrower: string;
   lender: string;
   principal: bigint;
+  collateral: bigint;
+  aprBps: number;
   durationSeconds: number;
   proposedAt: number;
   proposeTxHash: string;
@@ -115,6 +117,8 @@ export function reconstructLoanTimelines(input: {
       borrower: p.borrower,
       lender: p.lender,
       principal: p.principal,
+      collateral: p.collateral,
+      aprBps: p.aprBps,
       durationSeconds: p.durationSeconds,
       proposedAt: p.blockTimestamp,
       proposeTxHash: p.transactionHash,

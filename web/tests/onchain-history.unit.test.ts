@@ -54,6 +54,18 @@ function amountEvent(loanHash: string, blockTimestamp: number, txHash: string): 
   };
 }
 
+test("reconstructLoanTimelines: carries aprBps and collateral through from the proposed event", () => {
+  const timelines = reconstructLoanTimelines({
+    proposed: [proposed({ loanHash: "0xap1", blockTimestamp: 900, aprBps: 750, collateral: BigInt(2500) })],
+    funded: [],
+    repaid: [],
+    defaulted: [],
+    cancelled: [],
+  });
+  assert.equal(timelines[0].aprBps, 750);
+  assert.equal(timelines[0].collateral, BigInt(2500));
+});
+
 test("reconstructLoanTimelines: repaid before the due date is onTime", () => {
   const loanHash = "0xa1";
   const fundedAt = 1000;
