@@ -215,6 +215,13 @@ lifecycle except `markDefaulted` (which requires deliberately letting a
 loan go unpaid past its due date) has now been exercised for real, not
 just in the 20 local Hardhat tests.
 
+That first run used one wallet as both borrower and lender, for
+simplicity. A second live run repeated the full cycle with two genuinely
+separate wallets, each funded independently via the CC3 faucet — the real
+intended flow, including sharing the `/agreement` link from the
+borrower's side to the lender's — and was confirmed by the user to work
+end-to-end with no issues.
+
 ## Web app wiring
 
 `web/lib/loan-contract/index.ts` — client-side (runs in the browser, using
@@ -309,6 +316,6 @@ Vercel env vars, since a redeploy could point elsewhere):
 1. ~~Deploy for real and confirm the address resolves on CC3 Testnet.~~ **Done.**
 2. ~~Reach a real accepted negotiation with a real `ANTHROPIC_API_KEY`.~~ **Done.**
 3. ~~Click through `ExecuteOnCreditcoin`'s "Propose Agreement On-Chain" for real and confirm it returns a genuine transaction hash.~~ **Done** — see "A third real bug" above for the `gasLimit` fix this took.
-4. ~~Run the rest of the cycle — fund, then repay — using the `LoanLifecycle` UI end-to-end, and confirm balances and displayed status move as the tests predict.~~ **Done** — full propose → fund → repay cycle confirmed live; see "The full lifecycle, confirmed live" above. Still open: the *two-different-wallets* variant (this run used one wallet as both borrower and lender) and the post-due `markDefaulted` path (requires deliberately letting a loan go unpaid).
+4. ~~Run the rest of the cycle — fund, then repay — using the `LoanLifecycle` UI end-to-end, and confirm balances and displayed status move as the tests predict.~~ **Done** — full propose → fund → repay cycle confirmed live; see "The full lifecycle, confirmed live" above. ~~Still open: the *two-different-wallets* variant.~~ **Done** — a second live run used two genuinely separate wallets, each funded independently via the CC3 faucet (one borrower, one lender), exercising the real intended flow — including sharing the `/agreement` link between them — rather than one wallet playing both roles. Confirmed by the user, working end-to-end with no issues. Still open: the post-due `markDefaulted` path (requires deliberately letting a loan go unpaid).
 5. Confirm the "already proposed on mount" path in `ExecuteOnCreditcoin` (reloading the page after a proposal was made) correctly hands off to `LoanLifecycle` instead of re-showing the propose form.
 6. Verify a real repayment on the deployed contract is actually provable through the Phase 2 Attestcoin pipeline against CC3 Testnet as the *target* chain query — the current Phase 2 pipeline verifies Sepolia-sourced transactions; verifying a same-chain (CC3-native) event needs `resolveSepoliaChainKey`'s equivalent for CC3-as-source, which is out of scope here and would need its own check against `getSupportedChains()`.
