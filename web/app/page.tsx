@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { NetworkInfoCard } from "@/components/NetworkInfoCard";
-import { AcorisMark } from "@/components/site/AcorisMark";
+import { AcorisLogo } from "@/components/site/AcorisLogo";
 import { HeroVisual } from "@/components/site/HeroVisual";
 import { WalletPanel } from "@/components/WalletPanel";
 
@@ -58,7 +58,7 @@ export default function Home() {
       <section className="relative isolate overflow-hidden rounded-[var(--radius-hero)]">
         <HeroVisual />
         <div className="relative flex min-h-[27rem] flex-col items-center px-6 pb-32 pt-14 text-center sm:min-h-[33rem] sm:pb-44 sm:pt-20 lg:min-h-[36rem]">
-          <AcorisMark className="h-5 w-5 text-indigo-deep" />
+          <AcorisLogo className="h-14 w-14 drop-shadow-sm" priority />
           <h1 className="mt-6 max-w-3xl text-[2.6rem] font-semibold leading-[1.03] text-indigo-ink sm:text-6xl lg:text-[4.25rem]">
             Credit that proves itself
           </h1>

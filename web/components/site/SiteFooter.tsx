@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { CC3_TESTNET_CHAIN_ID } from "@/lib/creditcoin";
-import { AcorisMark } from "./AcorisMark";
+import { AcorisLogo } from "./AcorisLogo";
 
 const COLUMNS = [
   {
@@ -33,7 +33,7 @@ export function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.6fr_repeat(3,1fr)]">
           <div>
             <div className="flex items-center gap-2">
-              <AcorisMark className="h-4 w-4 text-lavender" />
+              <AcorisLogo className="h-7 w-7" />
               <span className="text-[15px] font-semibold tracking-tight">Acoris</span>
             </div>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-lavender/70">
