@@ -144,7 +144,7 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
       <button
         onClick={handleExecute}
         disabled={!canExecute}
-        className="w-full rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+        className="w-full rounded-lg bg-indigo-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-deep disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
       >
         {state === "submitting" ? "Submitting…" : "Propose Agreement On-Chain"}
       </button>

@@ -1,26 +1,262 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+ * Acoris design system.
+ *
+ * A committed light design: warm cream base, deep indigo surfaces, lavender
+ * accents. Because the look is committed rather than dual-mode, the `dark:`
+ * variant is redefined below to be class-driven and the class is never
+ * applied — so the many `dark:*` utilities still present in feature
+ * components stay inert instead of half-firing over a cream page. Removing
+ * the variant entirely would mean touching every component; this keeps the
+ * change to one line and is trivially reversible.
+ * ------------------------------------------------------------------------ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Surfaces */
+  --color-cream: #f6f4ef;
+  --color-cream-deep: #edeae1;
+  --color-shell: #fbfaf7;
+
+  /* Text */
+  --color-ink: #161329;
+  --color-ink-soft: #4b4667;
+  --color-ink-mute: #817d9b;
+
+  /* Deep indigo — dark cards, buttons, footer */
+  --color-indigo-deep: #2c2857;
+  --color-indigo-deeper: #211e45;
+  --color-indigo-ink: #14122b;
+
+  /* Lavender — light accent cards */
+  --color-lavender: #c9c6ec;
+  --color-lavender-soft: #dedcf6;
+  --color-lavender-mist: #eeecfb;
+
+  /* Violet — interactive accent */
+  --color-violet: #6f61e0;
+  --color-violet-bright: #8b7cf0;
+
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-card: 1.25rem;
+  --radius-hero: 1.75rem;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Display type in this design is large and tightly tracked. */
+h1,
+h2 {
+  letter-spacing: -0.03em;
+}
+
+h3 {
+  letter-spacing: -0.015em;
+}
+
+@layer components {
+  /* The standard white panel used across every feature page. */
+  .acoris-card {
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(22 19 41 / 0.07);
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgb(22 19 41 / 0.04), 0 12px 32px -24px rgb(22 19 41 / 0.35);
+  }
+
+  .acoris-card-lavender {
+    border-radius: var(--radius-card);
+    background-color: var(--color-lavender);
+    color: var(--color-indigo-ink);
+  }
+
+  .acoris-card-deep {
+    border-radius: var(--radius-card);
+    background-color: var(--color-indigo-deep);
+    color: #ffffff;
+  }
+
+  /* Primary pill CTA — the dark capsule from the reference. */
+  .acoris-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--color-indigo-ink);
+    padding: 0.7rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #ffffff;
+    transition: background-color 150ms ease, transform 150ms ease;
+  }
+  .acoris-btn:hover {
+    background-color: var(--color-indigo-deep);
+  }
+  .acoris-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  .acoris-btn:not(:disabled):active {
+    transform: translateY(1px);
+  }
+
+  .acoris-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(22 19 41 / 0.12);
+    background-color: transparent;
+    padding: 0.7rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-ink);
+    transition: background-color 150ms ease;
+  }
+  .acoris-btn-ghost:hover {
+    background-color: rgb(22 19 41 / 0.04);
+  }
+
+  /* Small uppercase section label. */
+  .acoris-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--color-ink-mute);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Hero visual.
+ *
+ * The reference art is a 3D render of a violet flower field with coins. This
+ * reproduces the same mood entirely in CSS — a graded sky, a layered glowing
+ * field, scattered highlights, and two metallic discs — so it ships as real
+ * markup with no image asset to load.
+ * ------------------------------------------------------------------------ */
+
+/* Bright at the horizon so the dark headline stays crisp against it. */
+.hero-sky {
+  background: radial-gradient(
+    135% 95% at 50% -12%,
+    #fcfbff 0%,
+    #f1effc 20%,
+    #ded9f5 40%,
+    #b8ade4 60%,
+    #8874c4 78%,
+    #543e8c 92%,
+    #33245e 100%
+  );
+}
+
+/* The far mass of the field: deep, heavily blurred, no detail. */
+.hero-field-back {
+  background:
+    radial-gradient(70% 62% at 18% 108%, rgba(139, 92, 246, 0.95) 0%, rgba(139, 92, 246, 0) 70%),
+    radial-gradient(66% 58% at 52% 112%, rgba(124, 58, 237, 0.92) 0%, rgba(124, 58, 237, 0) 70%),
+    radial-gradient(72% 56% at 85% 106%, rgba(167, 139, 250, 0.9) 0%, rgba(167, 139, 250, 0) 70%),
+    linear-gradient(180deg, rgba(59, 20, 120, 0) 0%, rgba(59, 20, 120, 0.5) 52%, rgba(30, 12, 70, 0.9) 100%);
+  filter: blur(7px);
+}
+
+/* The near bank, lit and pinker — drawn over the discs so the blooms
+   genuinely overlap their lower edge rather than floating behind them. */
+.hero-field-front {
+  background:
+    radial-gradient(54% 82% at 10% 114%, rgba(196, 181, 253, 0.98) 0%, rgba(196, 181, 253, 0) 66%),
+    radial-gradient(48% 78% at 36% 118%, rgba(216, 180, 254, 0.95) 0%, rgba(216, 180, 254, 0) 66%),
+    radial-gradient(52% 74% at 66% 114%, rgba(167, 139, 250, 0.96) 0%, rgba(167, 139, 250, 0) 66%),
+    radial-gradient(42% 70% at 93% 116%, rgba(232, 121, 249, 0.72) 0%, rgba(232, 121, 249, 0) 66%),
+    linear-gradient(180deg, rgba(76, 29, 149, 0) 0%, rgba(70, 26, 140, 0.55) 58%, rgba(36, 14, 84, 0.94) 100%);
+  filter: blur(4px);
+}
+
+/* Shadowed clumps at the very front, so the bank has depth rather than
+   reading as one flat wash of colour. */
+.hero-understory {
+  background:
+    radial-gradient(38% 66% at 8% 118%, rgba(46, 16, 101, 0.62) 0%, rgba(46, 16, 101, 0) 68%),
+    radial-gradient(32% 58% at 30% 124%, rgba(59, 20, 120, 0.5) 0%, rgba(59, 20, 120, 0) 68%),
+    radial-gradient(36% 62% at 58% 120%, rgba(46, 16, 101, 0.55) 0%, rgba(46, 16, 101, 0) 68%),
+    radial-gradient(34% 60% at 86% 122%, rgba(38, 14, 88, 0.6) 0%, rgba(38, 14, 88, 0) 68%);
+  filter: blur(6px);
+}
+
+/* Blossom specks. Two depths, each confined to its own bank so they never
+   land in open sky or across the face of a disc — only the near layer
+   crosses the discs, where the front bank genuinely buries them.
+   Deliberately prime-ish, mutually non-repeating tile sizes: on a regular
+   grid this reads as a halftone screen rather than scattered flowers. */
+.hero-blossoms-far,
+.hero-blossoms-near {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.7) 0 0.9px, rgba(255, 255, 255, 0) 1.5px),
+    radial-gradient(circle, rgba(243, 232, 255, 0.5) 0 1.2px, rgba(243, 232, 255, 0) 2.1px),
+    radial-gradient(circle, rgba(214, 196, 255, 0.42) 0 1.7px, rgba(214, 196, 255, 0) 2.9px),
+    radial-gradient(circle, rgba(232, 121, 249, 0.3) 0 1.3px, rgba(232, 121, 249, 0) 2.4px);
+  background-size: 43px 31px, 67px 53px, 101px 79px, 139px 61px;
+  background-position: 0 0, 19px 13px, 47px 34px, 83px 7px;
+}
+
+.hero-blossoms-far {
+  opacity: 0.55;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 46%, #000 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 46%, #000 100%);
+}
+
+.hero-blossoms-near {
+  opacity: 0.85;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 38%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 38%, #000 88%, transparent 100%);
+}
+
+/* Coins are drawn as foreshortened ellipses with a visible edge beneath,
+   not circles: a tilted disc plus real edge thickness is what separates a
+   struck coin from a pearl. Shading is a flat linear sweep across the face
+   for the same reason — a broad soft radial shades it spherically. */
+.hero-coin {
+  border-radius: 50%;
+  background:
+    radial-gradient(26% 20% at 28% 20%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(118deg, #f0eefd 0%, #d8d5f2 22%, #b3ade0 42%, #857ec0 60%, #554d97 80%, #362e6a 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.55);
+}
+
+.hero-coin-dark {
+  background:
+    radial-gradient(24% 18% at 30% 19%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(118deg, #bcb8dc 0%, #8b84ba 22%, #5a5386 44%, #3a3364 70%, #251e4c 100%);
+}
+
+/* The coin's side wall, offset below the face to give it thickness. */
+.hero-coin-edge {
+  border-radius: 50%;
+  background: linear-gradient(180deg, #4c4487 0%, #362e6a 40%, #241d4c 100%);
+  box-shadow: 0 26px 56px rgba(30, 16, 72, 0.6);
+}
+
+/* The struck rim separating the raised face from the coin edge. */
+.hero-coin-face {
+  border-radius: 50%;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 46%, rgba(30, 18, 70, 0.18) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+/* Fine grain, so the large gradients don't band on wide screens. */
+.hero-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
 }

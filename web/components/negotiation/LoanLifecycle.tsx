@@ -378,7 +378,7 @@ function ActionButton({ label, onClick, disabled }: { label: string; onClick: ()
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-lg bg-black px-3 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+      className="rounded-lg bg-indigo-ink px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-deep disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
     >
       {label}
     </button>

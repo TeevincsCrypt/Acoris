@@ -28,7 +28,7 @@ export function LifecycleStepper({ current }: { current: LifecycleStage }) {
             <span
               className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
                 isCurrent
-                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  ? "bg-indigo-ink text-white dark:bg-white dark:text-black"
                   : reached
                     ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
                     : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-600"

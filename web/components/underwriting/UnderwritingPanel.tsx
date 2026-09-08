@@ -66,7 +66,7 @@ export function UnderwritingPanel() {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       {/* Borrow Request */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Borrow Request
         </h2>
@@ -108,7 +108,7 @@ export function UnderwritingPanel() {
       </section>
 
       {/* Evidence */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Evidence
         </h2>
@@ -137,7 +137,7 @@ export function UnderwritingPanel() {
       <button
         onClick={runUnderwriting}
         disabled={loading || !canResolveEvidence({ mode: evidenceMode, borrowerAddress })}
-        className="rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+        className="rounded-lg bg-indigo-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-deep disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
       >
         {loading ? "Underwriting…" : "Run Underwriting"}
       </button>
@@ -152,7 +152,7 @@ export function UnderwritingPanel() {
       {result && (
         <>
           {/* Risk assessment */}
-          <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <section className="acoris-card p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Risk Assessment — {result.report.policyName}
             </h2>
@@ -194,7 +194,7 @@ export function UnderwritingPanel() {
           </section>
 
           {/* Underwriting decision */}
-          <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <section className="acoris-card p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Underwriting Decision
             </h2>
@@ -207,7 +207,7 @@ export function UnderwritingPanel() {
           </section>
 
           {/* Reasoning */}
-          <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <section className="acoris-card p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Why
             </h2>

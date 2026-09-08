@@ -94,7 +94,7 @@ export function AttestcoinVerificationPanel() {
       : "idle";
 
   return (
-    <div className="w-full max-w-2xl rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className="w-full max-w-2xl acoris-card p-6">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Attestcoin Verification
       </h2>
@@ -114,7 +114,7 @@ export function AttestcoinVerificationPanel() {
         <button
           onClick={runVerification}
           disabled={loading}
-          className="shrink-0 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+          className="shrink-0 rounded-lg bg-indigo-ink px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-deep disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
         >
           {loading ? "Verifying…" : "Verify"}
         </button>

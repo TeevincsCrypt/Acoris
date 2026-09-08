@@ -12,7 +12,7 @@ export function WalletPanel() {
     useWallet();
 
   return (
-    <div className="w-full max-w-md rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className="w-full max-w-md acoris-card p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Wallet
@@ -31,7 +31,7 @@ export function WalletPanel() {
         <button
           onClick={connect}
           disabled={status === "no-wallet"}
-          className="mt-4 w-full rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+          className="mt-4 w-full rounded-lg bg-indigo-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-deep disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
         >
           Connect Wallet
         </button>

@@ -81,7 +81,7 @@ export function MarketplacePanel() {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       {/* Borrow Request */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Borrow Request
         </h2>
@@ -106,7 +106,7 @@ export function MarketplacePanel() {
       </section>
 
       {/* Verified Credit */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Verified Credit
@@ -145,7 +145,7 @@ export function MarketplacePanel() {
       <button
         onClick={getOffers}
         disabled={loading || !canResolveEvidence({ mode: evidenceMode, borrowerAddress })}
-        className="rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+        className="rounded-lg bg-indigo-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-deep disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
       >
         {loading ? "Comparing lenders…" : "Get Offers"}
       </button>
@@ -161,7 +161,7 @@ export function MarketplacePanel() {
 
       {/* Offers */}
       {result && (
-        <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <section className="acoris-card p-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Lender Offers
           </h2>
@@ -225,7 +225,7 @@ export function MarketplacePanel() {
             {result.chosen && (
               <button
                 onClick={() => continueToNegotiation(result.chosen!.personaId)}
-                className="mt-3 rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+                className="mt-3 rounded-lg bg-indigo-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-deep dark:bg-white dark:text-black dark:hover:bg-zinc-200"
               >
                 Continue to Negotiation with {result.chosen.personaName}
               </button>

@@ -9,11 +9,11 @@ import { CC3_TESTNET_CHAIN_ID } from "@/lib/creditcoin";
 export function NetworkStatusBadge({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`inline-flex items-center gap-2 rounded-full border border-emerald-600/20 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-950 dark:text-emerald-300 ${className}`}
+      className={`inline-flex items-center gap-2 rounded-full border border-violet/20 bg-lavender-mist px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-deep ${className}`}
     >
       <span className="relative flex h-1.5 w-1.5">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet opacity-75" />
+        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-violet" />
       </span>
       Live Testnet · Creditcoin CC3 · Chain {CC3_TESTNET_CHAIN_ID}
     </div>

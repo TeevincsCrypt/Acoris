@@ -61,8 +61,15 @@ async function main() {
       const page = await browser.newPage();
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
 
+      // The landing h1 is the value proposition (the brand sits in SiteNav),
+      // so assert both: the hero headline, and that the product is named on
+      // the page at all.
       const heading = (await page.textContent("h1")).trim();
-      assert(heading === "Acoris", "page renders Acoris heading");
+      assert(heading === "Credit that proves itself", "page renders the hero headline");
+      assert(
+        (await page.evaluate(() => document.body.textContent)).includes("Acoris"),
+        "page names the product",
+      );
       assert(await page.textContent("text=No wallet"), 'shows "No wallet" badge with no window.ethereum');
       assert(
         await page.locator('button:has-text("Connect Wallet")').isDisabled(),

@@ -158,7 +158,7 @@ export function NegotiationConsole() {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       {/* Borrow Request */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Borrow Request
@@ -190,7 +190,7 @@ export function NegotiationConsole() {
       </section>
 
       {/* Verified Credit */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Verified Credit
@@ -229,7 +229,7 @@ export function NegotiationConsole() {
       <button
         onClick={startNegotiation}
         disabled={loading || !canResolveEvidence({ mode: evidenceMode, borrowerAddress })}
-        className="rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+        className="rounded-lg bg-indigo-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-deep disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
       >
         {loading ? "Negotiating…" : "Start AI Negotiation"}
       </button>
@@ -245,7 +245,7 @@ export function NegotiationConsole() {
 
       {/* AI Negotiation — a visual flow of structured events, rounds appended live as they stream in */}
       {rounds.length > 0 && (
-        <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <section className="acoris-card p-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             AI Negotiation
           </h2>
@@ -297,7 +297,7 @@ export function NegotiationConsole() {
 
       {/* Why these terms */}
       {result && explanation && explanation.terms.length > 0 && (
-        <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <section className="acoris-card p-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Why you received these terms
           </h2>
@@ -322,7 +322,7 @@ export function NegotiationConsole() {
 
       {/* Final Agreement */}
       {result && (
-        <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <section className="acoris-card p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Final Agreement

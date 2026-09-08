@@ -57,7 +57,7 @@ export function CreditProfilePanel() {
 
   return (
     <div className="flex w-full max-w-2xl flex-col gap-6">
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Bring Evidence
         </h2>
@@ -80,7 +80,7 @@ export function CreditProfilePanel() {
         <button
           onClick={buildProfile}
           disabled={loading || !canResolveEvidence({ mode, borrowerAddress })}
-          className="mt-4 w-full rounded-lg bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+          className="mt-4 w-full rounded-lg bg-indigo-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-deep disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
         >
           {loading ? "Verifying evidence…" : "Build Credit Profile"}
         </button>
@@ -92,7 +92,7 @@ export function CreditProfilePanel() {
       </section>
 
       {profile && (
-        <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <section className="acoris-card p-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Acoris Credit Profile
           </h2>
@@ -103,7 +103,7 @@ export function CreditProfilePanel() {
       )}
 
       {profile && (
-        <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <section className="acoris-card p-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Next Steps
           </h2>
@@ -132,7 +132,7 @@ export function CreditProfilePanel() {
             </a>
             <a
               href="/negotiation"
-              className="flex-1 rounded-lg bg-black px-3 py-2 text-center text-xs font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+              className="flex-1 rounded-lg bg-indigo-ink px-3 py-2 text-center text-xs font-medium text-white transition hover:bg-indigo-deep dark:bg-white dark:text-black dark:hover:bg-zinc-200"
             >
               Start a negotiation →
             </a>

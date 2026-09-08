@@ -120,7 +120,7 @@ export function DashboardPanel() {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-6">
       {/* Summary stats */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <p className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           {formatEther(stats.totalCreditActivityWei)} tCTC
         </p>
@@ -137,7 +137,7 @@ export function DashboardPanel() {
 
       {/* Active loans */}
       {activeLoans.length > 0 && (
-        <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <section className="acoris-card p-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Active Loan{activeLoans.length > 1 ? "s" : ""}
           </h2>
@@ -159,7 +159,7 @@ export function DashboardPanel() {
                 </p>
                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                   <div
-                    className={`h-full rounded-full ${loan.isOverdue ? "bg-red-500" : "bg-black dark:bg-white"}`}
+                    className={`h-full rounded-full ${loan.isOverdue ? "bg-red-500" : "bg-indigo-ink dark:bg-white"}`}
                     style={{ width: `${loan.progressPercent}%` }}
                   />
                 </div>
@@ -170,7 +170,7 @@ export function DashboardPanel() {
       )}
 
       {/* Activity feed */}
-      <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <section className="acoris-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Activity</h2>
         <ol className="mt-4 space-y-2">
           {activity.map((e, i) => (

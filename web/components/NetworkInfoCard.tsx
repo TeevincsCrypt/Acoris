@@ -6,7 +6,7 @@ import {
 
 export function NetworkInfoCard() {
   return (
-    <div className="w-full max-w-md rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className="w-full max-w-md acoris-card p-6">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Target network
       </h2>
