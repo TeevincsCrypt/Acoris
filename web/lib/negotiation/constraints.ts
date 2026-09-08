@@ -114,6 +114,38 @@ export const LENDER_PERSONAS: LenderPersona[] = [
   },
 ];
 
+export interface RiskDiscount {
+  /** 0 = no discount (baseline pricing), 1 = maximum discount (best-case pricing). Always defined — 0 when there's no verified evidence to discount from. */
+  riskDiscount: number;
+  /** min(verifiedRepaymentCount / 5, 1) — saturates at 5 verified repayments. null when there's no verified evidence (never a fabricated placeholder). */
+  countScore: number | null;
+  /** 1 − (failed / total) among verified repayments. null when there's no verified evidence. */
+  reliabilityScore: number | null;
+}
+
+/**
+ * The one deterministic, bounded, explainable scoring formula that turns
+ * verified financial evidence into a pricing discount — used by
+ * deriveLenderConstraints below, and re-exposed (not re-derived) to the
+ * underwriting view (lib/negotiation/underwrite.ts) so that view narrates
+ * the exact real number that actually governs pricing, never an invented
+ * "confidence score". Only ever reads the "verified" branch — "unverified"
+ * (self-reported) and "not-available" both get riskDiscount 0 (baseline),
+ * by construction, not just by prompt.
+ */
+export function computeRiskDiscount(financialProfile: VerifiedFinancialProfile): RiskDiscount {
+  if (financialProfile.status !== "verified") {
+    return { riskDiscount: 0, countScore: null, reliabilityScore: null };
+  }
+  const countScore = Math.min(financialProfile.verifiedRepaymentCount / 5, 1); // saturates at 5 repayments
+  const failureRatio =
+    financialProfile.failedRepaymentCount /
+    Math.max(financialProfile.successfulRepaymentCount + financialProfile.failedRepaymentCount, 1);
+  const reliabilityScore = 1 - failureRatio;
+  const riskDiscount = Math.max(0, Math.min(1, countScore * reliabilityScore));
+  return { riskDiscount, countScore, reliabilityScore };
+}
+
 /**
  * Derives the lender's risk-adjusted constraints. This is the one place
  * verified financial history is allowed to influence pricing — and it
@@ -127,17 +159,7 @@ export function deriveLenderConstraints(
   financialProfile: VerifiedFinancialProfile,
   policy: LenderRiskPolicy = DEFAULT_LENDER_RISK_POLICY,
 ): LenderConstraints {
-  let riskDiscount = 0; // 0 = no discount (baseline), 1 = maximum discount (best case)
-
-  if (financialProfile.status === "verified") {
-    // Deterministic, bounded scoring from verified evidence only.
-    const countScore = Math.min(financialProfile.verifiedRepaymentCount / 5, 1); // saturates at 5 repayments
-    const failureRatio =
-      financialProfile.failedRepaymentCount /
-      Math.max(financialProfile.successfulRepaymentCount + financialProfile.failedRepaymentCount, 1);
-    const reliabilityScore = 1 - failureRatio;
-    riskDiscount = Math.max(0, Math.min(1, countScore * reliabilityScore));
-  }
+  const { riskDiscount } = computeRiskDiscount(financialProfile);
 
   const minApr = policy.baseMinApr - (policy.baseMinApr - policy.bestCaseMinApr) * riskDiscount;
   const minCollateralRatio =

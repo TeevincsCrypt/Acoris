@@ -101,6 +101,38 @@ export function CreditProfilePanel() {
           </div>
         </section>
       )}
+
+      {profile && (
+        <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Next Steps
+          </h2>
+          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            This evidence isn&apos;t stored here — bring the same evidence mode and inputs to any of these to act on
+            it.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <a
+              href="/underwriting"
+              className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-center text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              See how a lender would price this →
+            </a>
+            <a
+              href="/marketplace"
+              className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-center text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Compare lender offers →
+            </a>
+            <a
+              href="/negotiation"
+              className="flex-1 rounded-lg bg-black px-3 py-2 text-center text-xs font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+            >
+              Start a negotiation →
+            </a>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
