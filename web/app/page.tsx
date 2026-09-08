@@ -141,6 +141,9 @@ export default function Home() {
           <Link href="/underwriting" className="text-zinc-500 underline hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
             How would a lender price me? →
           </Link>
+          <Link href="/improve" className="text-zinc-500 underline hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
+            How can I get better terms? →
+          </Link>
           <Link href="/dashboard" className="text-zinc-500 underline hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
             Your loan portfolio →
           </Link>

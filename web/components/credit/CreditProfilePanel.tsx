@@ -125,6 +125,12 @@ export function CreditProfilePanel() {
               Compare lender offers →
             </a>
             <a
+              href="/improve"
+              className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-center text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              How can I get better terms? →
+            </a>
+            <a
               href="/negotiation"
               className="flex-1 rounded-lg bg-black px-3 py-2 text-center text-xs font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
             >
