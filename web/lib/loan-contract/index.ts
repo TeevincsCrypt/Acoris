@@ -94,6 +94,28 @@ export interface ProposeAgreementParams {
   durationDays: number;
 }
 
+/**
+ * Fixed gas limits, generous over real measured usage (20 passing Hardhat
+ * tests; `proposeAgreement` itself measured at 139,527 gas). Passing these
+ * explicitly skips ethers' automatic `eth_estimateGas` pre-flight call —
+ * confirmed live against CC3 Testnet that this pre-flight call can silently
+ * fail in a way that surfaces as "missing revert data" / a reverted
+ * estimate even for a transaction that's actually valid (the exact cause
+ * wasn't pinned down further: something in the estimateGas round-trip
+ * through this RPC/wallet combination, not the contract call itself, which
+ * reproduces successfully with an explicit gas limit both locally and via
+ * `populateTransaction`). Skipping the estimate avoids that failure mode
+ * entirely — the wallet still does its own simulation before showing the
+ * user a confirmation, so nothing here bypasses real validation.
+ */
+const GAS_LIMITS = {
+  proposeAgreement: BigInt(300_000),
+  fundAgreement: BigInt(250_000),
+  repay: BigInt(250_000),
+  cancelProposal: BigInt(200_000),
+  markDefaulted: BigInt(200_000),
+} as const;
+
 /** Borrower proposes the agreement on-chain and escrows collateral. Requires the borrower's own signer. */
 export async function proposeAgreementOnChain(signer: Signer, params: ProposeAgreementParams) {
   const contract = getLoanRegistryContract(signer);
@@ -104,6 +126,7 @@ export async function proposeAgreementOnChain(signer: Signer, params: ProposeAgr
 
   return contract.proposeAgreement(params.loanHash, params.lenderAddress, principal, aprBps, durationSeconds, {
     value: collateral,
+    gasLimit: GAS_LIMITS.proposeAgreement,
   });
 }
 
@@ -117,26 +140,26 @@ export async function proposeAgreementOnChain(signer: Signer, params: ProposeAgr
  */
 export async function fundAgreementOnChain(signer: Signer, loanHash: string, principalWei: bigint) {
   const contract = getLoanRegistryContract(signer);
-  return contract.fundAgreement(loanHash, { value: principalWei });
+  return contract.fundAgreement(loanHash, { value: principalWei, gasLimit: GAS_LIMITS.fundAgreement });
 }
 
 /** Borrower withdraws a not-yet-funded proposal, reclaiming their escrowed collateral. Requires the borrower's own signer. */
 export async function cancelProposalOnChain(signer: Signer, loanHash: string) {
   const contract = getLoanRegistryContract(signer);
-  return contract.cancelProposal(loanHash);
+  return contract.cancelProposal(loanHash, { gasLimit: GAS_LIMITS.cancelProposal });
 }
 
 /** Borrower repays principal + interest. Requires the borrower's own signer. */
 export async function repayOnChain(signer: Signer, loanHash: string) {
   const contract = getLoanRegistryContract(signer);
   const owed: bigint = await contract.repaymentAmount(loanHash);
-  return contract.repay(loanHash, { value: owed });
+  return contract.repay(loanHash, { value: owed, gasLimit: GAS_LIMITS.repay });
 }
 
 /** Lender seizes collateral once the agreed duration has elapsed without repayment. Requires the lender's own signer. */
 export async function markDefaultedOnChain(signer: Signer, loanHash: string) {
   const contract = getLoanRegistryContract(signer);
-  return contract.markDefaulted(loanHash);
+  return contract.markDefaulted(loanHash, { gasLimit: GAS_LIMITS.markDefaulted });
 }
 
 /** Total principal + interest currently owed for this agreement (matches what `repay` requires as msg.value). */
