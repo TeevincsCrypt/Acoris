@@ -20,6 +20,7 @@ const NAV_LINKS = [
 // in the footer.
 const MOBILE_LINKS = [
   ...NAV_LINKS,
+  { href: "/agreement", label: "Find an agreement" },
   { href: "/improve", label: "Improvement simulator" },
   { href: "/attestcoin", label: "Cross-chain verification" },
 ];

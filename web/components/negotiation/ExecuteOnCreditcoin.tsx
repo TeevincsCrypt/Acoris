@@ -13,6 +13,7 @@ import {
 } from "@/lib/loan-contract";
 import type { LoanTerms } from "@/lib/negotiation/types";
 import { TransactionProof } from "@/components/TransactionProof";
+import { ShareAgreementLink } from "@/components/agreement/ShareAgreementLink";
 
 import { LoanLifecycle } from "./LoanLifecycle";
 
@@ -89,6 +90,7 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
     return (
       <div className="mt-4 space-y-2">
         {state === "success" && txHash && <TransactionProof txHash={txHash} label="Proposed on-chain — collateral escrowed" />}
+        <ShareAgreementLink loanHash={loanHash} />
         <LoanLifecycle loanHash={loanHash} />
       </div>
     );
@@ -133,7 +135,8 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
         <p className="text-xs text-amber-600 dark:text-amber-400">Connect a wallet on CC3 Testnet to execute.</p>
       )}
       <label className="block text-xs text-zinc-500 dark:text-zinc-400">
-        Lender wallet address — the account that will review and fund this loan
+        Lender wallet address — the account that will review and fund this loan. You&apos;ll get a link to send them
+        once this is proposed; nothing is sent automatically.
       </label>
       <input
         value={lenderAddress}

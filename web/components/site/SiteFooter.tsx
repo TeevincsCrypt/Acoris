@@ -22,7 +22,10 @@ const COLUMNS = [
   },
   {
     heading: "Track",
-    links: [{ href: "/dashboard", label: "Loan portfolio" }],
+    links: [
+      { href: "/dashboard", label: "Loan portfolio" },
+      { href: "/agreement", label: "Find an agreement" },
+    ],
   },
 ];
 
