@@ -331,6 +331,11 @@ export function useWallet(): WalletContextValue {
   return ctx;
 }
 
+/** Shared so the nav and the wallet panel never render the same account differently. */
+export function shortAddress(address: string): string {
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
 export function formatTctc(balanceWei: bigint): string {
   const asString = formatEther(balanceWei);
   const [whole, fraction = ""] = asString.split(".");

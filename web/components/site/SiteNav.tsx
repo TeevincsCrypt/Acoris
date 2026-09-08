@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { AcorisMark } from "./AcorisMark";
+import { NavWalletButton } from "./NavWalletButton";
 
 const NAV_LINKS = [
   { href: "/credit-profile", label: "Credit profile" },
@@ -19,6 +20,7 @@ const NAV_LINKS = [
  */
 export function SiteNav() {
   const pathname = usePathname();
+  const isLanding = pathname === "/";
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink/5 bg-cream/85 backdrop-blur-md">
@@ -47,9 +49,17 @@ export function SiteNav() {
           })}
         </ul>
 
-        <Link href="/negotiation" className="acoris-btn shrink-0 px-5 py-2 text-[13px]">
-          Launch app
-        </Link>
+        {/* The landing page sells the product and carries its own full
+            WalletPanel, so it gets the entry-point CTA. Everywhere else the
+            user is already inside the app and needs the wallet itself —
+            connecting used to be possible only back on the landing page. */}
+        {isLanding ? (
+          <Link href="/negotiation" className="acoris-btn shrink-0 px-5 py-2 text-[13px]">
+            Launch app
+          </Link>
+        ) : (
+          <NavWalletButton />
+        )}
       </nav>
     </header>
   );

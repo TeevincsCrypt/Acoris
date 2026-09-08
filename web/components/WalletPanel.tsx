@@ -1,11 +1,7 @@
 "use client";
 
-import { useWallet, formatTctc } from "@/lib/wallet-context";
+import { useWallet, formatTctc, shortAddress } from "@/lib/wallet-context";
 import { CC3_TESTNET_CHAIN_ID } from "@/lib/creditcoin";
-
-function shortAddress(address: string): string {
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
 
 export function WalletPanel() {
   const { status, address, chainId, reading, error, connect, disconnect, switchToCC3Testnet, refresh } =
