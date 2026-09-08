@@ -7,20 +7,23 @@ import { useState } from "react";
 import { AcorisLogo } from "./AcorisLogo";
 import { NavWalletButton } from "./NavWalletButton";
 
+// Ordered to match the actual journey: build credit, find a lender,
+// negotiate terms, then the deal that comes out of it — a real on-chain
+// agreement someone (often a second person, the lender) needs to find and
+// fund — before tracking everything in the portfolio.
 const NAV_LINKS = [
   { href: "/credit-profile", label: "Credit profile" },
   { href: "/marketplace", label: "Marketplace" },
   { href: "/negotiation", label: "Negotiate" },
+  { href: "/agreement", label: "Agreement" },
   { href: "/underwriting", label: "Underwriter" },
   { href: "/dashboard", label: "Portfolio" },
 ];
 
-// The desktop bar only has room for the primary five; the mobile sheet has
-// vertical space, so it carries every route rather than hiding two of them
-// in the footer.
+// The mobile sheet has vertical space the desktop bar doesn't, so it also
+// carries the two routes that don't fit the primary six.
 const MOBILE_LINKS = [
   ...NAV_LINKS,
-  { href: "/agreement", label: "Find an agreement" },
   { href: "/improve", label: "Improvement simulator" },
   { href: "/attestcoin", label: "Cross-chain verification" },
 ];
@@ -42,7 +45,7 @@ export function SiteNav() {
           <span className="text-[15px] font-semibold tracking-tight">Acoris</span>
         </Link>
 
-        <ul className="hidden items-center gap-1 md:flex">
+        <ul className="hidden items-center gap-1 lg:flex">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.href;
             return (
@@ -80,7 +83,7 @@ export function SiteNav() {
             aria-expanded={menuOpen}
             aria-controls="mobile-nav"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/10 text-ink transition-colors hover:bg-ink/5 md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/10 text-ink transition-colors hover:bg-ink/5 lg:hidden"
           >
             {menuOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
@@ -88,7 +91,7 @@ export function SiteNav() {
       </nav>
 
       {menuOpen && (
-        <div id="mobile-nav" className="border-t border-ink/5 bg-cream md:hidden">
+        <div id="mobile-nav" className="border-t border-ink/5 bg-cream lg:hidden">
           <ul className="mx-auto w-full max-w-6xl px-5 py-2 sm:px-8">
             {MOBILE_LINKS.map((link) => {
               const active = pathname === link.href;
