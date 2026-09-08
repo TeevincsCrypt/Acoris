@@ -14,12 +14,13 @@ export const CC3_TESTNET_RPC_HTTP = "https://rpc.cc3-testnet.creditcoin.network"
 export const CC3_TESTNET_RPC_WSS = "wss://rpc.cc3-testnet.creditcoin.network";
 
 /**
- * Blockscout instance advertised for the USC testnet deployment. The
- * foundation report flags this as unverified against the exact RPC above,
- * so it's included only as a best-effort explorer link, never relied on
- * for chain data.
+ * Blockscout instance for CC3 Testnet. The foundation report originally
+ * flagged `explorer.usc-testnet.creditcoin.network` as unverified against
+ * the exact RPC above — that instance has since been decommissioned;
+ * `creditcoin-testnet.blockscout.com` is the current one. Used only as a
+ * best-effort explorer link, never relied on for chain data.
  */
-export const CC3_TESTNET_EXPLORER = "https://explorer.usc-testnet.creditcoin.network";
+export const CC3_TESTNET_EXPLORER = "https://creditcoin-testnet.blockscout.com";
 
 export const CC3_TESTNET_NATIVE_CURRENCY = {
   name: "Creditcoin Testnet",

@@ -4,11 +4,13 @@ import { CC3_TESTNET_EXPLORER } from "@/lib/creditcoin";
  * Displays a real transaction hash prominently after a real confirmed
  * write. `txHash` must come from an actual transaction result — never
  * pass a placeholder or a hash from a different chain. The explorer link
- * uses the app's own configured CC3_TESTNET_EXPLORER (never invented) but
- * is kept secondary: the foundation report flags this Blockscout instance
- * as unverified against the exact RPC this app targets, and it has been
- * unreachable in practice during this project's own testing — so the tx
- * hash itself, not the link, is the actual proof shown here.
+ * uses the app's own configured CC3_TESTNET_EXPLORER (never invented) —
+ * an earlier Blockscout instance this pointed at was decommissioned and
+ * replaced with the current one (see lib/creditcoin.ts) — but is still
+ * kept secondary and labeled best-effort: this sandbox's own network
+ * policy blocks reaching *.blockscout.com, so it can't be independently
+ * re-verified from here. The tx hash itself, not the link, is the actual
+ * proof shown here.
  */
 export function TransactionProof({ txHash, label = "Confirmed on Creditcoin CC3 Testnet" }: { txHash: string; label?: string }) {
   const explorerUrl = `${CC3_TESTNET_EXPLORER}/tx/${txHash}`;

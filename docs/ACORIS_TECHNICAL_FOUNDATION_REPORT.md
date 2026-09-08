@@ -16,7 +16,7 @@
 
 The RPC URL above is confirmed independently three ways: Creditcoin's public docs/socials, ChainList, and — most reliably — it's the literal value hardcoded in `@gluwa/usc-sdk`'s own test `globalSetup.ts` and README examples. Treat it as canonical.
 
-**Note on explorers:** a second Blockscout instance, `explorer.usc-testnet.creditcoin.network`, also surfaced in search results, labeled "Creditcoin3 USC Testnet." It's unclear from external sources alone whether this is the same network as `rpc.cc3-testnet.creditcoin.network` under a different explorer, or a distinct USC-specific testnet deployment. Since the SDK's own code/tests point exclusively at `rpc.cc3-testnet.creditcoin.network`, that's what Acoris should target; verify the Blockscout URL against a live block hash before relying on it.
+**Note on explorers (resolved 2026-09-08):** a second Blockscout instance, `explorer.usc-testnet.creditcoin.network`, also surfaced in search results at the time of this report, labeled "Creditcoin3 USC Testnet." That instance has since been decommissioned — attempting to open a transaction on it in the shipped product returned nothing. The current Blockscout instance for CC3 Testnet is `https://creditcoin-testnet.blockscout.com`; `web/lib/creditcoin.ts`'s `CC3_TESTNET_EXPLORER` points at it.
 
 ## 2. Attestcoin / USC SDK — current package
 
@@ -173,7 +173,7 @@ Components to build:
 ---
 
 ### Open items flagged as unverified (do not assume before building on them)
-- Whether `explorer.usc-testnet.creditcoin.network` is the same deployment as `rpc.cc3-testnet.creditcoin.network` or a separate USC-only testnet.
+- ~~Whether `explorer.usc-testnet.creditcoin.network` is the same deployment as `rpc.cc3-testnet.creditcoin.network` or a separate USC-only testnet.~~ Resolved: that instance is decommissioned; CC3 Testnet's current explorer is `https://creditcoin-testnet.blockscout.com` (see the explorers note above).
 - The exact live `chainKey` integer for Sepolia on the current CC3 Testnet deployment — must be read via `getSupportedChains()` at build time, not assumed.
 - Full list of all currently-supported source chains beyond Sepolia — only queryable live, not documented as a stable static list.
 

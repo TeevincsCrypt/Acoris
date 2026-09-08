@@ -171,10 +171,11 @@ Someone with real internet access to `*.creditcoin.network` needs to:
    rather than erroring.
 3. Cross-check the decoded `fact` values against Sepolia Etherscan for the
    same transaction.
-4. Confirm whether `explorer.usc-testnet.creditcoin.network` (flagged as
-   unverified in the foundation report) shows the same CC3 chain state as
-   `rpc.cc3-testnet.creditcoin.network` — still not needed for this pipeline,
-   but worth resolving before Phase 3 documentation references an explorer.
+4. ~~Confirm whether `explorer.usc-testnet.creditcoin.network` shows the same
+   CC3 chain state as `rpc.cc3-testnet.creditcoin.network`.~~ Resolved: that
+   instance has been decommissioned. CC3 Testnet's current Blockscout
+   instance is `https://creditcoin-testnet.blockscout.com` — `CC3_TESTNET_EXPLORER`
+   in `web/lib/creditcoin.ts` now points at it.
 
 ## Tests
 
