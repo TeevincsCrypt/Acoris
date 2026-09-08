@@ -1,17 +1,11 @@
 import { z } from "zod";
 
 import { AI_UNAVAILABLE_MESSAGE, AIUnavailableError, isAIConfigured } from "@/lib/negotiation/ai-agent";
+import { LENDER_PERSONAS } from "@/lib/negotiation/constraints";
 import { runNegotiation } from "@/lib/negotiation/engine";
+import { LoanRequestSchema } from "@/lib/negotiation/request-schemas";
 import { FinancialEvidenceSchema, resolveFinancialProfile } from "@/lib/negotiation/resolve-financial-profile";
 import type { LoanRequest, NegotiationRound, VerifiedFinancialProfile } from "@/lib/negotiation/types";
-
-const LoanRequestSchema = z.object({
-  amount: z.number().positive(),
-  collateralValue: z.number().positive(),
-  durationDays: z.number().positive(),
-  maxApr: z.number().positive(),
-  preferredRepaymentConditions: z.string().optional(),
-});
 
 const RequestSchema = z.object({
   loanRequest: LoanRequestSchema,
@@ -20,6 +14,11 @@ const RequestSchema = z.object({
   // re-derives evidence for. "unverified" carries a self-reported claim that
   // is explicitly never treated as verified evidence.
   financialEvidence: FinancialEvidenceSchema,
+  // Set only when arriving from the lender marketplace (/marketplace) —
+  // picks which named persona's LenderRiskPolicy governs this negotiation.
+  // Omitted (the normal /negotiation flow), behavior is identical to
+  // before the marketplace existed: DEFAULT_LENDER_RISK_POLICY.
+  lenderPersonaId: z.string().optional(),
 });
 
 type StreamMessage =
@@ -54,7 +53,12 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const { loanRequest, financialEvidence } = parsed.data;
+  const { loanRequest, financialEvidence, lenderPersonaId } = parsed.data;
+
+  if (lenderPersonaId && !LENDER_PERSONAS.some((p) => p.id === lenderPersonaId)) {
+    return Response.json({ error: `Unknown lenderPersonaId: ${lenderPersonaId}` }, { status: 400 });
+  }
+  const lenderRiskPolicy = lenderPersonaId ? LENDER_PERSONAS.find((p) => p.id === lenderPersonaId) : undefined;
 
   let financialProfile: VerifiedFinancialProfile;
   try {
@@ -78,6 +82,7 @@ export async function POST(request: Request) {
         const result = await runNegotiation({
           loanRequest: loanRequest as LoanRequest,
           financialProfile,
+          lenderRiskPolicy,
           onRound: (round) => send({ type: "round", round }),
         });
         send({ type: "complete", result });

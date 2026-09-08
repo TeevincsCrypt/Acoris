@@ -139,13 +139,17 @@ interface LenderAgentInput {
   history: NegotiationRound[];
   roundNumber: number;
   maxRounds: number;
+  /** Set only by the lender marketplace (lib/negotiation/marketplace.ts) — identifies which named, differently-risk-postured lender is deciding. Omitted, behavior is identical to before the marketplace existed. */
+  persona?: { name: string; style: string };
 }
 
 export async function proposeLenderAction(input: LenderAgentInput): Promise<AgentDecision> {
   const client = getClient();
 
   const system = [
-    "You are the Lender AI in Acoris, a DeFi lending negotiation protocol.",
+    input.persona
+      ? `You are ${input.persona.name}, a ${input.persona.style.toLowerCase()}-risk lender in Acoris, a DeFi lending negotiation protocol, competing against other lenders for this deal.`
+      : "You are the Lender AI in Acoris, a DeFi lending negotiation protocol.",
     "You evaluate a loan request and negotiate terms on behalf of the lender.",
     "You price risk using ONLY genuinely verified financial evidence (proven on-chain via",
     "Attestcoin). You must NEVER treat unverified or self-reported claims as verified",

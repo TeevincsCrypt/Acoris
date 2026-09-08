@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { EXAMPLE_SEPOLIA_TX_HASH } from "@/lib/attestcoin";
@@ -17,6 +18,7 @@ import { buildFinancialEvidence, canResolveEvidence, EvidenceModeSelector, type 
 import { FinancialProfileSummary } from "@/components/credit/FinancialProfileSummary";
 import { explainNegotiation } from "@/lib/negotiation/explain";
 import { estimateTotalRepayment } from "@/lib/loan-contract";
+import { LENDER_PERSONAS } from "@/lib/negotiation/constraints";
 import { ExecuteOnCreditcoin } from "./ExecuteOnCreditcoin";
 
 interface NegotiationApiResult {
@@ -66,8 +68,25 @@ function agentLabel(agent: AgentRole): string {
   return agent === "borrower" ? "Borrower AI" : "Lender AI";
 }
 
+/** Reads a positive-number query param, falling back when absent or not a valid positive number. */
+function numberParam(params: URLSearchParams, key: string, fallback: number): number {
+  const raw = params.get(key);
+  if (raw === null) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 export function NegotiationConsole() {
-  const [loanRequest, setLoanRequest] = useState<LoanRequest>(DEFAULT_LOAN_REQUEST);
+  const searchParams = useSearchParams();
+  const lenderPersonaId = searchParams.get("lenderPersonaId") ?? undefined;
+  const lenderPersona = lenderPersonaId ? LENDER_PERSONAS.find((p) => p.id === lenderPersonaId) : undefined;
+
+  const [loanRequest, setLoanRequest] = useState<LoanRequest>(() => ({
+    amount: numberParam(searchParams, "amount", DEFAULT_LOAN_REQUEST.amount),
+    collateralValue: numberParam(searchParams, "collateralValue", DEFAULT_LOAN_REQUEST.collateralValue),
+    durationDays: numberParam(searchParams, "durationDays", DEFAULT_LOAN_REQUEST.durationDays),
+    maxApr: numberParam(searchParams, "maxApr", DEFAULT_LOAN_REQUEST.maxApr),
+  }));
   const [evidenceMode, setEvidenceMode] = useState<EvidenceMode>("verify");
   const [txHashes, setTxHashes] = useState<string[]>([EXAMPLE_SEPOLIA_TX_HASH]);
   const [claimedSummary, setClaimedSummary] = useState("");
@@ -90,7 +109,7 @@ export function NegotiationConsole() {
       const res = await fetch("/api/negotiation/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loanRequest, financialEvidence }),
+        body: JSON.stringify({ loanRequest, financialEvidence, lenderPersonaId }),
       });
 
       // Pre-flight failures (validation, evidence resolution, AI not
@@ -140,9 +159,16 @@ export function NegotiationConsole() {
     <div className="flex w-full max-w-3xl flex-col gap-6">
       {/* Borrow Request */}
       <section className="rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-          Borrow Request
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Borrow Request
+          </h2>
+          {lenderPersona && (
+            <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+              Negotiating with {lenderPersona.name} ({lenderPersona.style})
+            </span>
+          )}
+        </div>
         <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
           <Field label="Amount" value={loanRequest.amount} onChange={(v) => setLoanRequest({ ...loanRequest, amount: v })} />
           <Field

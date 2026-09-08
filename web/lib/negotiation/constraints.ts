@@ -61,6 +61,59 @@ export const DEFAULT_LENDER_RISK_POLICY: LenderRiskPolicy = {
   maxDurationDays: 365,
 };
 
+export interface LenderPersona extends LenderRiskPolicy {
+  id: string;
+  name: string;
+  /** One-word risk stance shown in the marketplace UI and given to the persona's own Lender AI prompt. */
+  style: string;
+}
+
+/**
+ * Three distinct, deterministic risk policies for the lender marketplace
+ * (see lib/negotiation/marketplace.ts) — not three copies of the same
+ * lender with different names. The tradeoff is real: a lender willing to
+ * accept less collateral (Gamma) prices that added risk into a higher
+ * APR floor; a lender demanding more collateral (Alpha) can afford to
+ * offer a lower rate. Beta matches DEFAULT_LENDER_RISK_POLICY exactly, so
+ * the single-lender negotiation flow (lenderPersonaId omitted) is
+ * unaffected by this list existing.
+ */
+export const LENDER_PERSONAS: LenderPersona[] = [
+  {
+    id: "alpha",
+    name: "Lender Alpha",
+    style: "Conservative",
+    baseMinApr: 8,
+    bestCaseMinApr: 5,
+    baseMinCollateralRatio: 1.55,
+    bestCaseMinCollateralRatio: 1.3,
+    maxAmount: 100_000,
+    maxDurationDays: 365,
+  },
+  {
+    id: "beta",
+    name: "Lender Beta",
+    style: "Balanced",
+    baseMinApr: 9,
+    bestCaseMinApr: 4,
+    baseMinCollateralRatio: 1.5,
+    bestCaseMinCollateralRatio: 1.15,
+    maxAmount: 100_000,
+    maxDurationDays: 365,
+  },
+  {
+    id: "gamma",
+    name: "Lender Gamma",
+    style: "Aggressive",
+    baseMinApr: 9.5,
+    bestCaseMinApr: 6,
+    baseMinCollateralRatio: 1.35,
+    bestCaseMinCollateralRatio: 1.1,
+    maxAmount: 100_000,
+    maxDurationDays: 365,
+  },
+];
+
 /**
  * Derives the lender's risk-adjusted constraints. This is the one place
  * verified financial history is allowed to influence pricing — and it
