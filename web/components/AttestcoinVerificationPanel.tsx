@@ -85,6 +85,14 @@ export function AttestcoinVerificationPanel() {
   const verifiedState: "pending" | "yes" | "no" =
     result?.proofVerified === undefined ? "pending" : result.proofVerified ? "yes" : "no";
 
+  const proofMoment: "idle" | "verifying" | "verified" | "failed" = loading
+    ? "verifying"
+    : result
+      ? result.ok && result.proofVerified
+        ? "verified"
+        : "failed"
+      : "idle";
+
   return (
     <div className="w-full max-w-2xl rounded-xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -119,8 +127,32 @@ export function AttestcoinVerificationPanel() {
         Reset to example transaction
       </button>
 
+      {proofMoment === "verifying" && (
+        <div className="mt-5 flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-50 p-4 dark:border-blue-400/20 dark:bg-blue-950">
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-500 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500" />
+          </span>
+          <p className="text-sm font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+            Verifying cross-chain evidence…
+          </p>
+        </div>
+      )}
+
+      {proofMoment === "verified" && (
+        <div className="mt-5 rounded-lg border border-emerald-600/20 bg-emerald-50 p-4 text-center dark:border-emerald-400/20 dark:bg-emerald-950">
+          <p className="text-base font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+            Cryptographic proof verified ✓
+          </p>
+          <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200">
+            Independently proven on Creditcoin CC3 Testnet via the BlockProver precompile — not because a hash was
+            supplied, because the proof actually checked out.
+          </p>
+        </div>
+      )}
+
       {result && (
-        <div className="mt-5 rounded-lg border border-black/10 p-4 dark:border-white/10">
+        <div className="mt-3 rounded-lg border border-black/10 p-4 dark:border-white/10">
           <Row label="Source Chain">{result.sourceChain?.chainName ?? "sepolia"}</Row>
           <Row label="Source Transaction">{result.transactionHash}</Row>
           <Row label="Source Block">{result.sourceBlockHeight ?? "—"}</Row>
@@ -151,7 +183,10 @@ export function AttestcoinVerificationPanel() {
                   : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
               }`}
             >
-              <p className="font-semibold">
+              <p className="text-sm font-bold uppercase tracking-wide">
+                {result.networkBlocked ? "Verification blocked" : "Verification failed"}
+              </p>
+              <p className="mt-1 font-semibold">
                 Stopped at stage: <span className="font-mono">{result.stage}</span>
                 {result.networkBlocked ? " — looks like a network/connectivity block, not a proof failure." : ""}
               </p>

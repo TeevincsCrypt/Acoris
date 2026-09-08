@@ -16,6 +16,7 @@ import {
   cancelProposalOnChain,
   computeLoanHash,
   dealUnitsToWei,
+  estimateTotalRepayment,
   fundAgreementOnChain,
   getLoanRegistryContract,
   getRepaymentAmountOnChain,
@@ -47,6 +48,27 @@ test("aprToBps converts percent to basis points", () => {
 test("dealUnitsToWei converts whole units to wei via 18 decimals", () => {
   assert.equal(dealUnitsToWei(1).toString(), "1000000000000000000");
   assert.equal(dealUnitsToWei(10000).toString(), (BigInt(10000) * BigInt(10) ** BigInt(18)).toString());
+});
+
+test("estimateTotalRepayment matches the contract's own simple-interest formula exactly", () => {
+  // AcorisLoanRegistry.sol: principal * aprBps * durationSeconds / (365 days * 10000)
+  const principal = 1;
+  const aprPercent = 8;
+  const durationDays = 60;
+  const aprBps = aprToBps(aprPercent);
+  const durationSeconds = durationDays * 24 * 60 * 60;
+  const contractInterest = (principal * aprBps * durationSeconds) / (365 * 24 * 60 * 60 * 10000);
+  const expected = principal + contractInterest;
+  assert.ok(Math.abs(estimateTotalRepayment(principal, aprPercent, durationDays) - expected) < 1e-9);
+});
+
+test("estimateTotalRepayment matches the real live example (1 tCTC, 8% APR, 60 days -> 1.013150684931506849)", () => {
+  const total = estimateTotalRepayment(1, 8, 60);
+  assert.ok(Math.abs(total - 1.0131506849315068) < 1e-9);
+});
+
+test("estimateTotalRepayment with zero APR returns exactly the principal", () => {
+  assert.equal(estimateTotalRepayment(500, 0, 30), 500);
 });
 
 test("isLoanRegistryDeployed is false when NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS is unset", () => {

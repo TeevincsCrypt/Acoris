@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Acoris",
-  description: "AI-powered DeFi negotiation protocol on Creditcoin CC3 Testnet",
+  title: "Acoris — Credit that proves itself",
+  description: "AI-powered DeFi credit backed by cryptographically verified financial activity, on Creditcoin CC3 Testnet.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

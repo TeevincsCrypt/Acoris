@@ -12,6 +12,7 @@ import {
   proposeAgreementOnChain,
 } from "@/lib/loan-contract";
 import type { LoanTerms } from "@/lib/negotiation/types";
+import { TransactionProof } from "@/components/TransactionProof";
 
 import { LoanLifecycle } from "./LoanLifecycle";
 
@@ -87,11 +88,7 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
   if (state === "success" || alreadyProposed) {
     return (
       <div className="mt-4 space-y-2">
-        {state === "success" && (
-          <p className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-            Proposed on-chain. Tx: <span className="font-mono">{txHash}</span>. Collateral escrowed.
-          </p>
-        )}
+        {state === "success" && txHash && <TransactionProof txHash={txHash} label="Proposed on-chain — collateral escrowed" />}
         <LoanLifecycle loanHash={loanHash} />
       </div>
     );
@@ -125,6 +122,9 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
 
   return (
     <div className="mt-4 space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-600">
+        Borrower → requests credit
+      </p>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         Registry deployed at <span className="font-mono">{LOAN_REGISTRY_ADDRESS}</span>. Proposing escrows your
         collateral on-chain from your connected wallet.
@@ -132,10 +132,13 @@ export function ExecuteOnCreditcoin({ negotiationId, finalTerms }: { negotiation
       {!walletReady && (
         <p className="text-xs text-amber-600 dark:text-amber-400">Connect a wallet on CC3 Testnet to execute.</p>
       )}
+      <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+        Lender wallet address — the account that will review and fund this loan
+      </label>
       <input
         value={lenderAddress}
         onChange={(e) => setLenderAddress(e.target.value)}
-        placeholder="Lender wallet address (0x…)"
+        placeholder="0x…"
         className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 font-mono text-xs dark:border-white/10"
       />
       <button

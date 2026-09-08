@@ -14,6 +14,8 @@ import {
   repayOnChain,
   type OnChainAgreement,
 } from "@/lib/loan-contract";
+import { TransactionProof } from "@/components/TransactionProof";
+import { LifecycleStepper, type LifecycleStage } from "./LifecycleStepper";
 
 /** Polling interval while the agreement is still in a non-terminal state — picks up actions taken by the counterparty in another browser. */
 const POLL_MS = 20000;
@@ -38,6 +40,23 @@ const STATUS_STYLE: Record<AgreementStatus, string> = {
 
 function sameAddress(a: string | null | undefined, b: string | null | undefined): boolean {
   return Boolean(a) && Boolean(b) && a!.toLowerCase() === b!.toLowerCase();
+}
+
+function toLifecycleStage(status: AgreementStatus): LifecycleStage | null {
+  switch (status) {
+    case AgreementStatus.Proposed:
+      return "proposed";
+    case AgreementStatus.Funded:
+      return "funded";
+    case AgreementStatus.Repaid:
+      return "repaid";
+    case AgreementStatus.Cancelled:
+      return "cancelled";
+    case AgreementStatus.Defaulted:
+      return "defaulted";
+    default:
+      return null;
+  }
 }
 
 /**
@@ -158,6 +177,8 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
   const isPastDue = dueAt !== null && now >= dueAt;
   const submitting = actionState === "submitting";
 
+  const lifecycleStage = toLifecycleStage(agreement.status);
+
   return (
     <div className="mt-4 space-y-3 rounded-lg border border-black/10 p-4 dark:border-white/10">
       <div className="flex items-center justify-between">
@@ -169,9 +190,11 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
         </span>
       </div>
 
+      {lifecycleStage && <LifecycleStepper current={lifecycleStage} />}
+
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        <Row label="Borrower" value={shorten(agreement.borrower)} you={isBorrower} />
-        <Row label="Lender" value={shorten(agreement.lender)} you={isLender} />
+        <Row label="Borrower" value={shorten(agreement.borrower)} you={isBorrower} role="requests credit, repays" />
+        <Row label="Lender" value={shorten(agreement.lender)} you={isLender} role="reviews and funds" />
         <Row label="Principal" value={`${formatEther(agreement.principal)} tCTC`} />
         <Row label="Collateral" value={`${formatEther(agreement.collateral)} tCTC`} />
         <Row label="APR" value={`${(agreement.aprBps / 100).toFixed(2)}%`} />
@@ -180,6 +203,12 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
         {repaymentOwed !== null && <Row label="Owed to repay" value={`${formatEther(repaymentOwed)} tCTC`} />}
       </dl>
 
+      {isBorrower && isLender && (
+        <p className="text-xs text-zinc-400 dark:text-zinc-600">
+          This wallet is acting as both borrower and lender (a single-wallet demo run) — in a real deal these would
+          be two separate connected wallets.
+        </p>
+      )}
       {!isBorrower && !isLender && (
         <p className="text-xs text-zinc-400 dark:text-zinc-600">
           Connected wallet is neither the borrower nor the lender on this agreement — read-only.
@@ -228,11 +257,7 @@ export function LoanLifecycle({ loanHash }: { loanHash: string }) {
       {actionState === "error" && actionError && (
         <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">{actionError}</p>
       )}
-      {lastTxHash && actionState !== "error" && (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Last transaction: <span className="font-mono">{lastTxHash}</span>
-        </p>
-      )}
+      {lastTxHash && actionState !== "error" && <TransactionProof txHash={lastTxHash} />}
 
       {agreement.status === AgreementStatus.Repaid && (
         <p className="text-xs text-emerald-600 dark:text-emerald-400">
@@ -266,10 +291,13 @@ function ActionButton({ label, onClick, disabled }: { label: string; onClick: ()
   );
 }
 
-function Row({ label, value, you }: { label: string; value: string; you?: boolean }) {
+function Row({ label, value, you, role }: { label: string; value: string; you?: boolean; role?: string }) {
   return (
     <>
-      <dt className="text-zinc-500 dark:text-zinc-400">{label}</dt>
+      <dt className="text-zinc-500 dark:text-zinc-400">
+        {label}
+        {role && <span className="block font-sans text-[10px] normal-case text-zinc-400 dark:text-zinc-600">{role}</span>}
+      </dt>
       <dd className="text-right font-mono text-zinc-900 dark:text-zinc-100">
         {value}
         {you && <span className="ml-1 font-sans text-zinc-400 dark:text-zinc-600">(you)</span>}

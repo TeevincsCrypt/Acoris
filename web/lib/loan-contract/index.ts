@@ -85,6 +85,21 @@ export function dealUnitsToWei(amount: number): bigint {
   return parseEther(amount.toString());
 }
 
+/**
+ * Estimated total repayment (principal + interest) in the same deal units
+ * the negotiation produced — the exact same simple-interest formula the
+ * contract itself uses (`repaymentAmount` in AcorisLoanRegistry.sol:
+ * `principal * aprBps * durationSeconds / (365 days * 10000)`), just
+ * computed here before any on-chain proposal exists. Once a proposal is
+ * actually on-chain, `getRepaymentAmountOnChain` reads the contract's own
+ * real value instead — this is only ever shown as an estimate, never
+ * presented as a contract-confirmed number.
+ */
+export function estimateTotalRepayment(principalDealUnits: number, aprPercent: number, durationDays: number): number {
+  const interest = principalDealUnits * (aprPercent / 100) * (durationDays / 365);
+  return principalDealUnits + interest;
+}
+
 export interface ProposeAgreementParams {
   loanHash: string;
   lenderAddress: string;
