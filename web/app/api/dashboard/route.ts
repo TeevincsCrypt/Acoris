@@ -9,7 +9,9 @@ import { fetchOnChainLoanHistory, LOAN_REGISTRY_DEPLOY_BLOCK, type LoanTimeline 
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
 const RequestSchema = z.object({
-  borrowerAddress: z.string().regex(ADDRESS_PATTERN),
+  address: z.string().regex(ADDRESS_PATTERN),
+  /** Which side of AgreementProposed to query by — defaults to "borrower" (this route's original, only behavior). */
+  role: z.enum(["borrower", "lender"]).optional().default("borrower"),
 });
 
 function toDto(t: LoanTimeline): LoanTimelineDto {
@@ -34,13 +36,15 @@ function toDto(t: LoanTimeline): LoanTimelineDto {
 }
 
 /**
- * Returns a borrower's full AcorisLoanRegistry timeline — every agreement
- * they've ever proposed, whatever its outcome (pending/funded/repaid/
- * defaulted/cancelled) — read directly from CC3 Testnet. This is the same
- * real network boundary /api/credit-profile's "onchain" evidence mode
- * uses, just returning everything rather than filtering to repaid/
- * defaulted evidence only; the dashboard needs the full picture (e.g. an
- * active loan's real due date) that evidence-only filtering would drop.
+ * Returns one address's full AcorisLoanRegistry timeline — every agreement
+ * they've ever been party to as either borrower or lender (see `role`),
+ * whatever its outcome (pending/funded/repaid/defaulted/cancelled) — read
+ * directly from CC3 Testnet. This is the same real network boundary
+ * /api/credit-profile's "onchain" evidence mode uses, just returning
+ * everything rather than filtering to repaid/defaulted evidence only; the
+ * dashboard needs the full picture (e.g. an active loan's real due date,
+ * or a still-pending agreement awaiting the lender's review) that
+ * evidence-only filtering would drop.
  */
 export async function POST(request: Request) {
   let parsedBody: unknown;
@@ -79,8 +83,9 @@ export async function POST(request: Request) {
     const timelines = await fetchOnChainLoanHistory(
       provider,
       LOAN_REGISTRY_ADDRESS as string,
-      parsed.data.borrowerAddress,
+      parsed.data.address,
       LOAN_REGISTRY_DEPLOY_BLOCK,
+      parsed.data.role,
     );
     return Response.json({ timelines: timelines.map(toDto) });
   } catch (err) {

@@ -127,6 +127,42 @@ export function buildActivityFeed(timelines: LoanTimelineDto[]): ActivityEvent[]
   return events.sort((a, b) => b.timestamp - a.timestamp);
 }
 
+export interface PendingLenderReview {
+  loanHash: string;
+  borrower: string;
+  principalWei: string;
+  collateralWei: string;
+  aprBps: number;
+  durationSeconds: number;
+  proposedAt: number;
+}
+
+/**
+ * Agreements where the queried address is the lender and funding is still
+ * needed — proposed, but nobody has funded it yet. This is the one thing
+ * "awaiting your review" actually means: every other outcome (funded,
+ * repaid, defaulted, cancelled) needs no action from the lender right now,
+ * so those are deliberately excluded here rather than left for the caller
+ * to filter back out. Expects timelines already scoped to this address as
+ * lender (see fetchOnChainLoanHistory's role param) — this does not itself
+ * check the `lender` field, since a lender-scoped query has nothing else in
+ * it to filter by identity.
+ */
+export function findPendingLenderReviews(timelines: LoanTimelineDto[]): PendingLenderReview[] {
+  return timelines
+    .filter((t) => t.outcome === "pending")
+    .map((t) => ({
+      loanHash: t.loanHash,
+      borrower: t.borrower,
+      principalWei: t.principalWei,
+      collateralWei: t.collateralWei,
+      aprBps: t.aprBps,
+      durationSeconds: t.durationSeconds,
+      proposedAt: t.proposedAt,
+    }))
+    .sort((a, b) => b.proposedAt - a.proposedAt);
+}
+
 /** "2h ago", "3d ago", "just now" — relative to nowSeconds, real timestamps only. */
 export function timeAgo(timestampSeconds: number, nowSeconds: number): string {
   const diff = Math.max(0, nowSeconds - timestampSeconds);

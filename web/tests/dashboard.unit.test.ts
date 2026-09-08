@@ -10,7 +10,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildActivityFeed, computeActiveLoans, computeDashboardStats, timeAgo, type LoanTimelineDto } from "../lib/dashboard";
+import {
+  buildActivityFeed,
+  computeActiveLoans,
+  computeDashboardStats,
+  findPendingLenderReviews,
+  timeAgo,
+  type LoanTimelineDto,
+} from "../lib/dashboard";
 
 const DAY = 86400;
 
@@ -129,6 +136,57 @@ test("buildActivityFeed emits both the real proposal and the real cancellation f
     events.map((e) => e.type).sort(),
     ["cancelled", "proposed"],
   );
+});
+
+test("findPendingLenderReviews includes only agreements that still need funding", () => {
+  const reviews = findPendingLenderReviews([
+    timeline({ loanHash: "needs-funding", outcome: "pending", proposedAt: 100 }),
+    timeline({ loanHash: "already-funded", outcome: "funded", proposedAt: 200 }),
+    timeline({ loanHash: "already-repaid", outcome: "repaid", proposedAt: 300 }),
+    timeline({ loanHash: "defaulted", outcome: "defaulted", proposedAt: 400 }),
+    timeline({ loanHash: "cancelled", outcome: "cancelled", proposedAt: 500 }),
+  ]);
+  assert.deepEqual(
+    reviews.map((r) => r.loanHash),
+    ["needs-funding"],
+  );
+});
+
+test("findPendingLenderReviews sorts most recently proposed first", () => {
+  const reviews = findPendingLenderReviews([
+    timeline({ loanHash: "older", outcome: "pending", proposedAt: 100 }),
+    timeline({ loanHash: "newer", outcome: "pending", proposedAt: 300 }),
+    timeline({ loanHash: "middle", outcome: "pending", proposedAt: 200 }),
+  ]);
+  assert.deepEqual(
+    reviews.map((r) => r.loanHash),
+    ["newer", "middle", "older"],
+  );
+});
+
+test("findPendingLenderReviews carries the real terms through, not just the loanHash", () => {
+  const [review] = findPendingLenderReviews([
+    timeline({
+      loanHash: "a",
+      outcome: "pending",
+      borrower: "0x9999999999999999999999999999999999999",
+      principalWei: "1234000000000000000",
+      collateralWei: "2000000000000000000",
+      aprBps: 750,
+      durationSeconds: 45 * DAY,
+      proposedAt: 555,
+    }),
+  ]);
+  assert.equal(review.borrower, "0x9999999999999999999999999999999999999");
+  assert.equal(review.principalWei, "1234000000000000000");
+  assert.equal(review.collateralWei, "2000000000000000000");
+  assert.equal(review.aprBps, 750);
+  assert.equal(review.durationSeconds, 45 * DAY);
+  assert.equal(review.proposedAt, 555);
+});
+
+test("findPendingLenderReviews on an empty history is an empty list, not a crash", () => {
+  assert.deepEqual(findPendingLenderReviews([]), []);
 });
 
 test("timeAgo formats real elapsed time in increasing units", () => {

@@ -210,7 +210,7 @@ async function queryFilterChunked(
 }
 
 /**
- * Fetches a borrower's full AcorisLoanRegistry history directly from CC3
+ * Fetches one address's full AcorisLoanRegistry history directly from CC3
  * Testnet and reconstructs timelines. Real network call — see module
  * doc comment for why it isn't reachable from this sandbox.
  *
@@ -221,20 +221,31 @@ async function queryFilterChunked(
  * deployment block should refuse to call this rather than pass 0 and hope
  * chunking alone saves them: on a testnet with a long history, a from-
  * genesis scan is hundreds of chunked requests, not one.
+ *
+ * `role` picks which side of `AgreementProposed` (both `borrower` and
+ * `lender` are independently indexed) the address is matched against —
+ * `"borrower"` (the default, and everything this function did before this
+ * parameter existed) for the deals someone has proposed, `"lender"` for the
+ * deals someone else has named them as the counterparty on. Every other
+ * event (FundLoan/RepayLoan/AgreementDefaulted/AgreementCancelled) is
+ * matched back to whichever proposed set was fetched exactly as before —
+ * the role only changes which agreements count as "theirs" to begin with.
  */
 export async function fetchOnChainLoanHistory(
   provider: JsonRpcProvider,
   registryAddress: string,
-  borrowerAddress: string,
+  address: string,
   fromBlock: number,
+  role: "borrower" | "lender" = "borrower",
 ): Promise<LoanTimeline[]> {
   const contract = new Contract(registryAddress, loanRegistryAbi, provider);
   const latestBlock = await provider.getBlockNumber();
 
-  // AgreementProposed indexes `borrower`, so this is a targeted query.
+  // AgreementProposed indexes both `borrower` and `lender`, so either
+  // direction is a targeted, server-side-filtered query.
   const proposedLogs = await queryFilterChunked(
     contract,
-    contract.filters.AgreementProposed(null, borrowerAddress),
+    role === "lender" ? contract.filters.AgreementProposed(null, null, address) : contract.filters.AgreementProposed(null, address),
     fromBlock,
     latestBlock,
   );
