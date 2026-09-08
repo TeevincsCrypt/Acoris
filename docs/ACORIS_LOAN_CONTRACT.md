@@ -166,6 +166,55 @@ ways:
   and turning one slow query into hundreds of chunked ones. This mirrors
   every other "genuinely disabled until configured" gate in this project.
 
+#### A second deployment attempt, and what it actually was
+
+The address first reported as "the deployed contract" turned out, on
+inspection, to be the deployer's own wallet address, not a contract —
+`ignition/deployments/` was empty locally, meaning Ignition had never
+actually run to completion. Once actually deployed for real (`AcorisLoanRegistry`
+at `0x8cB3dDFF9e432D23e622Ff118A3fDDA192993Fb4`), `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS`
+was corrected to point at it.
+
+#### A third real bug: `eth_estimateGas` silently losing the collateral value
+
+The first live "Propose Agreement On-Chain" attempt against the real
+contract failed with `missing revert data (action="estimateGas", ...)`,
+even with a genuinely correct, nonzero collateral amount shown in the UI.
+This was root-caused, not guessed at: simulating the exact RPC call
+sequence `proposeAgreementOnChain` makes through a fake EIP-1193 wallet +
+`BrowserProvider` (mirroring `wallet-context.tsx`'s real flow) showed the
+`eth_estimateGas` request our code sends does carry the correct nonzero
+`value` every time; separately, calling the contract locally with the same
+decoded calldata succeeded with a real value and reverted with the exact
+custom error (`ZeroAmount`) that matches the "missing revert data" symptom
+when value is 0. So both the app and the contract were provably correct —
+the failure was specific to how the wallet/RPC combination handles that
+one pre-flight `eth_estimateGas` simulation call.
+
+Fixed by passing an explicit `gasLimit` (generous fixed values informed by
+real measured gas usage — `proposeAgreement` measured at 139,527 gas
+locally) to every write call in `lib/loan-contract/index.ts`. This makes
+ethers skip `eth_estimateGas` entirely and go straight to
+`eth_sendTransaction`, which was confirmed to carry the value correctly —
+the wallet still simulates the transaction itself before showing a
+confirmation, so nothing about safety is bypassed, just the one RPC
+round-trip that was failing.
+
+#### The full lifecycle, confirmed live
+
+With both fixes in place, a complete real cycle was run end-to-end against
+the deployed contract (borrower and lender using the same test wallet, for
+simplicity): a live AI negotiation reached `ACCEPTED`, "Propose Agreement
+On-Chain" succeeded with a real transaction hash and escrowed collateral,
+"Fund Agreement" succeeded and moved status to `FUNDED` (with the UI's
+live `repaymentAmount` reading — `1.013150684931506849 tCTC` owed on a 1
+tCTC principal at 8% APR over 60 days — matching the contract's own simple-interest
+formula exactly), and "Repay" succeeded, returning the collateral to the
+borrower and moving status to `REPAID`. Every write path in the contract's
+lifecycle except `markDefaulted` (which requires deliberately letting a
+loan go unpaid past its due date) has now been exercised for real, not
+just in the 20 local Hardhat tests.
+
 ## Web app wiring
 
 `web/lib/loan-contract/index.ts` — client-side (runs in the browser, using
@@ -253,13 +302,13 @@ verified here:
 
 ## What still requires manual verification
 
-Status against a real deployment (`0x1bb2Bf0eD3f218E29039432F0494380f892AfCB0`
+Status against the real deployment (`0x8cB3dDFF9e432D23e622Ff118A3fDDA192993Fb4`
 at the time of writing — confirm the current address in the deployment's own
 Vercel env vars, since a redeploy could point elsewhere):
 
-1. ~~Deploy for real and confirm the address resolves on CC3 Testnet.~~ **Done** — deployed outside this sandbox, `NEXT_PUBLIC_LOAN_REGISTRY_ADDRESS` set and live.
-2. ~~Reach a real accepted negotiation with a real `ANTHROPIC_API_KEY`.~~ **Done** — a live Borrower AI / Lender AI negotiation reached a final agreement.
-3. Click through `ExecuteOnCreditcoin`'s "Propose Agreement On-Chain" for real and confirm it returns a genuine transaction hash (in progress as of the last check-in — this is the one write-path boundary not yet confirmed live).
-4. Run the rest of the cycle with two real wallets — fund, then repay — using the `LoanLifecycle` UI end-to-end (not just the contract directly), and confirm balances and displayed status move as the tests predict, including the "due" timestamp and post-due `markDefaulted` gating.
+1. ~~Deploy for real and confirm the address resolves on CC3 Testnet.~~ **Done.**
+2. ~~Reach a real accepted negotiation with a real `ANTHROPIC_API_KEY`.~~ **Done.**
+3. ~~Click through `ExecuteOnCreditcoin`'s "Propose Agreement On-Chain" for real and confirm it returns a genuine transaction hash.~~ **Done** — see "A third real bug" above for the `gasLimit` fix this took.
+4. ~~Run the rest of the cycle — fund, then repay — using the `LoanLifecycle` UI end-to-end, and confirm balances and displayed status move as the tests predict.~~ **Done** — full propose → fund → repay cycle confirmed live; see "The full lifecycle, confirmed live" above. Still open: the *two-different-wallets* variant (this run used one wallet as both borrower and lender) and the post-due `markDefaulted` path (requires deliberately letting a loan go unpaid).
 5. Confirm the "already proposed on mount" path in `ExecuteOnCreditcoin` (reloading the page after a proposal was made) correctly hands off to `LoanLifecycle` instead of re-showing the propose form.
 6. Verify a real repayment on the deployed contract is actually provable through the Phase 2 Attestcoin pipeline against CC3 Testnet as the *target* chain query — the current Phase 2 pipeline verifies Sepolia-sourced transactions; verifying a same-chain (CC3-native) event needs `resolveSepoliaChainKey`'s equivalent for CC3-as-source, which is out of scope here and would need its own check against `getSupportedChains()`.
