@@ -25,6 +25,7 @@ const COLUMNS = [
     links: [
       { href: "/dashboard", label: "Loan portfolio" },
       { href: "/agreement", label: "Find an agreement" },
+      { href: "/acoris-ai", label: "Ask Acoris AI" },
     ],
   },
 ];

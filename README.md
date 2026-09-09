@@ -28,6 +28,7 @@ The core idea: a borrower proves a real repayment — cross-chain via Attestcoin
 | `/agreement` | Where a lender actually finds and funds a proposed deal — paste a link or a loanHash, connect the matching wallet, act on what's on-chain. |
 | `/dashboard` | A wallet's real on-chain history: stats, an active-loan progress bar, an activity feed — and a live count of loans awaiting your review as a lender, the closest thing this product has to a notification (no backend, no email — it's a poll against `AgreementProposed`). |
 | `/attestcoin` | The standalone cross-chain verification flow: a real Sepolia transaction, attested and proven on CC3 via the BlockProver precompile. |
+| `/acoris-ai` | A read-only chat assistant. It explains the protocol, and — with a wallet connected — answers "my loans" questions from a real `lookup_wallet_activity` tool call against `AcorisLoanRegistry`, never a guess. It never negotiates or writes on-chain state; that's `/negotiation` and `/marketplace`. |
 
 ## Repository layout
 
@@ -80,7 +81,7 @@ Deploying to CC3 Testnet needs a funded deployer key — see [`contracts/README.
 
 ```bash
 # Unit tests (pure logic — negotiation math, pricing, on-chain event reconstruction, etc.)
-cd web && npx tsx --test tests/*.unit.test.ts        # 135 tests
+cd web && npx tsx --test tests/*.unit.test.ts        # 141 tests
 
 # End-to-end (spawns the real dev server, drives a real browser)
 node tests/e2e-wallet-shell.mjs

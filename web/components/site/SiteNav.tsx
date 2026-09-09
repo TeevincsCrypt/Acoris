@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { href: "/agreement", label: "Agreement" },
   { href: "/underwriting", label: "Underwriter" },
   { href: "/dashboard", label: "Portfolio" },
+  { href: "/acoris-ai", label: "Acoris AI" },
 ];
 
 // The mobile sheet has vertical space the desktop bar doesn't, so it also
