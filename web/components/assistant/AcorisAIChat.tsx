@@ -21,6 +21,10 @@ const STARTER_PROMPTS = [
   "How is the risk discount actually calculated?",
   "What happens on-chain when a lender funds an agreement?",
   "Do I have any loans awaiting my review?",
+  "What's the difference between unverified and verified evidence?",
+  "How does the Borrower AI / Lender AI negotiation actually work?",
+  "What do the three lender personas on the marketplace do differently?",
+  "How does a lender find and fund an agreement I proposed?",
 ];
 
 function toolCallLabel(call: { name: string; input: unknown }): string {
@@ -167,6 +171,9 @@ export function AcorisAIChat() {
     });
   }
 
+  const askedPrompts = new Set(messages.filter((m) => m.role === "user").map((m) => m.content));
+  const remainingPrompts = STARTER_PROMPTS.filter((prompt) => !askedPrompts.has(prompt));
+
   return (
     <div className="acoris-card flex h-[32rem] flex-col overflow-hidden">
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-6 sm:px-7">
@@ -175,18 +182,7 @@ export function AcorisAIChat() {
             <p className="text-sm text-ink-mute">
               Ask about how Acoris works, or — if your wallet is connected — about your own loans.
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {STARTER_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => void send(prompt)}
-                  className="rounded-full border border-ink/10 bg-lavender-mist px-3.5 py-1.5 text-xs text-indigo-deep transition-colors hover:bg-lavender-soft"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
+            <PresetPrompts prompts={STARTER_PROMPTS} onPick={(p) => void send(p)} disabled={sending} justify="center" />
           </div>
         ) : (
           messages.map((message, i) => <ChatBubble key={i} message={message} />)
@@ -195,6 +191,12 @@ export function AcorisAIChat() {
 
       {error && (
         <p className="border-t border-ink/5 bg-lavender-mist px-5 py-2 text-xs text-indigo-deep sm:px-7">{error}</p>
+      )}
+
+      {messages.length > 0 && remainingPrompts.length > 0 && (
+        <div className="border-t border-ink/5 px-5 py-2.5 sm:px-7">
+          <PresetPrompts prompts={remainingPrompts.slice(0, 3)} onPick={(p) => void send(p)} disabled={sending} justify="start" />
+        </div>
       )}
 
       <form
@@ -216,6 +218,34 @@ export function AcorisAIChat() {
           {sending ? "…" : "Send"}
         </button>
       </form>
+    </div>
+  );
+}
+
+function PresetPrompts({
+  prompts,
+  onPick,
+  disabled,
+  justify,
+}: {
+  prompts: string[];
+  onPick: (prompt: string) => void;
+  disabled: boolean;
+  justify: "center" | "start";
+}) {
+  return (
+    <div className={`flex flex-wrap gap-2 ${justify === "center" ? "justify-center" : "justify-start"}`}>
+      {prompts.map((prompt) => (
+        <button
+          key={prompt}
+          type="button"
+          onClick={() => onPick(prompt)}
+          disabled={disabled}
+          className="rounded-full border border-ink/10 bg-lavender-mist px-3.5 py-1.5 text-xs text-indigo-deep transition-colors hover:bg-lavender-soft disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {prompt}
+        </button>
+      ))}
     </div>
   );
 }

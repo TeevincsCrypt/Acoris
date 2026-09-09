@@ -8,7 +8,7 @@ Built for BUIDL CTC Fall 2026.
 - **Contract:** `AcorisLoanRegistry` at [`0x8cB3dDFF9e432D23e622Ff118A3fDDA192993Fb4`](https://creditcoin-testnet.blockscout.com/address/0x8cB3dDFF9e432D23e622Ff118A3fDDA192993Fb4) on Creditcoin CC3 Testnet (chain id `102031`)
 - **Status:** the full propose → fund → repay lifecycle has been run live, on-chain, with real transactions — see [`docs/ACORIS_LOAN_CONTRACT.md`](docs/ACORIS_LOAN_CONTRACT.md#the-full-lifecycle-confirmed-live)
 - **Project deck:** [`docs/Acoris-Project-Deck.pdf`](docs/Acoris-Project-Deck.pdf)
-- **Whitepaper:** [`docs/Acoris-Whitepaper.pdf`](docs/Acoris-Whitepaper.pdf) — full technical writeup: every feature, the evidence model, the negotiation engine, the contract, and a glossary of every term used
+- **Whitepaper (PDF URL):** [hosted viewer](https://claude.ai/code/artifact/e77d49bc-0133-405b-be67-3d569f3812f9) · [raw PDF](https://raw.githubusercontent.com/TeevincsCrypt/Acoris/main/docs/Acoris-Whitepaper.pdf) · [in-repo copy](docs/Acoris-Whitepaper.pdf) — full technical writeup: every feature, the evidence model, the negotiation engine, the contract, and a glossary of every term used
 
 ## What this actually is
 
