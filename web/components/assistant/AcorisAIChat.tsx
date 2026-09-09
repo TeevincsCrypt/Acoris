@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { useWallet } from "@/lib/wallet-context";
 
@@ -250,25 +252,99 @@ function PresetPrompts({
   );
 }
 
+/** Renders inline `code`, fenced code blocks, bold, and lists the way the model actually writes them — never raw asterisks or dashes shown as literal text. */
+const MARKDOWN_COMPONENTS = {
+  p: ({ children }: { children?: React.ReactNode }) => <p className="mb-2 last:mb-0">{children}</p>,
+  ul: ({ children }: { children?: React.ReactNode }) => <ul className="mb-2 list-disc space-y-1 pl-5 last:mb-0">{children}</ul>,
+  ol: ({ children }: { children?: React.ReactNode }) => <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>,
+  li: ({ children }: { children?: React.ReactNode }) => <li>{children}</li>,
+  strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold text-ink">{children}</strong>,
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-violet underline underline-offset-2 hover:text-indigo-deep">
+      {children}
+    </a>
+  ),
+  code: ({ className, children }: { className?: string; children?: React.ReactNode }) => {
+    // remark marks fenced-block code with a `language-*` className; inline code has none.
+    const isBlock = typeof className === "string" && className.startsWith("language-");
+    if (isBlock) {
+      return (
+        <code className="block overflow-x-auto whitespace-pre font-mono text-[12.5px] leading-relaxed">{children}</code>
+      );
+    }
+    return <code className="rounded bg-lavender-mist px-1 py-0.5 font-mono text-[12.5px] text-indigo-deep">{children}</code>;
+  },
+  pre: ({ children }: { children?: React.ReactNode }) => (
+    <pre className="mb-2 overflow-x-auto rounded-lg bg-lavender-mist p-3 text-indigo-deep last:mb-0">{children}</pre>
+  ),
+};
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can be denied by the browser — fail silently, nothing to recover from.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      aria-label={copied ? "Copied" : "Copy response"}
+      title={copied ? "Copied" : "Copy response"}
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-ink-mute transition-colors hover:bg-ink/5 hover:text-ink"
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 function ChatBubble({ message }: { message: DisplayMessage }) {
   const isUser = message.role === "user";
+  const hasContent = message.content.trim().length > 0;
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[85%] space-y-2 ${isUser ? "items-end" : "items-start"}`}>
+      <div className={`min-w-0 max-w-[85%] space-y-1.5 ${isUser ? "items-end" : "items-start"}`}>
         {message.toolCalls.map((call, i) => (
           <p key={i} className="acoris-eyebrow text-left text-violet">
             {toolCallLabel(call)}
           </p>
         ))}
-        {(message.content || !isUser) && (
+        {(hasContent || !isUser) && (
           <div
-            className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap ${
-              isUser ? "bg-indigo-ink text-white" : "border border-ink/8 bg-shell text-ink"
+            className={`rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed ${
+              isUser ? "bg-indigo-ink text-white whitespace-pre-wrap" : "border border-ink/8 bg-shell text-ink"
             }`}
           >
-            {message.content || "…"}
+            {isUser ? message.content : hasContent ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{message.content}</ReactMarkdown> : "…"}
           </div>
         )}
+        {!isUser && hasContent && <CopyButton text={message.content} />}
       </div>
     </div>
   );
